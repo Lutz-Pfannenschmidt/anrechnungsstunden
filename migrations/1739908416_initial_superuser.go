@@ -14,8 +14,8 @@ func init() {
 
 		record := core.NewRecord(superusers)
 
-		record.Set("email", "admin")
-		record.Set("password", "admin")
+		record.Set("email", "admin@example.com")
+		record.Set("password", "admin1234")
 
 		return app.Save(record)
 	}, func(app core.App) error {
