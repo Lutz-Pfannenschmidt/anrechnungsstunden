@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Lutz-Pfannenschmidt/stunden-berechner/internal/csv"
+	"anrechnungsstundenberechner/internal/csv"
 )
 
 func ParseFile(path string) (map[string][2]float64, error) {

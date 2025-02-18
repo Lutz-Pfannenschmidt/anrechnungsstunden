@@ -1,4 +1,4 @@
-module github.com/Lutz-Pfannenschmidt/stunden-berechner
+module anrechnungsstundenberechner
 
 go 1.24
 

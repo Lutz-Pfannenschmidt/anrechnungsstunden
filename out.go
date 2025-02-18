@@ -6,7 +6,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/Lutz-Pfannenschmidt/stunden-berechner/internal/out"
+	"anrechnungsstundenberechner/internal/out"
+
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pocketbase/dbx"
