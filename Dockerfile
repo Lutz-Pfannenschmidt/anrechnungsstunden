@@ -20,7 +20,7 @@ RUN cd client && npm install && npm run build
 RUN mkdir -p bin/client/dist 
 RUN cp -r client/dist/* bin/client/dist
 
-EXPOSE 8090
+EXPOSE 80
 
 # Run
 CMD ["./bin/anrechnungsstundenberechner", "serve", "--http", "0.0.0.0:80"]

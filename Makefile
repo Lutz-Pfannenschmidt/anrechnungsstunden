@@ -12,3 +12,7 @@ buildclient:
 clean:
 	rm -rf bin/
 	rm -rf client/dist
+
+make publish:
+	docker build -t lutzpfannenschmidt/anrechnungsstundenberechner . 
+	docker push lutzpfannenschmidt/anrechnungsstundenberechner
