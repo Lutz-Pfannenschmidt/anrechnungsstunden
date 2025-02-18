@@ -20,8 +20,6 @@ RUN cd client && npm install && npm run build
 RUN mkdir -p bin/client/dist 
 RUN cp -r client/dist/* bin/client/dist
 
-RUN ./bin/anrechnungsstundenberechner superuser upsert admin@admin.admin admin1234
-
 EXPOSE 8090
 
 # Run
