@@ -1,0 +1,122 @@
+.frm {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+}
+
+.frm-wide {
+    min-width: 32rem;
+    width: 32rem;
+}
+
+.frm-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.frm-group:has(label.sameline) {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.btn {
+    all: unset;
+    background: rgb(var(--background-color));
+    color: rgb(var(--text-color));
+    padding: 1rem;
+    min-width: 8em;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-success {
+    box-shadow: rgb(var(--success-color)) 0px 0px 0px 2px inset,
+        rgb(var(--background-color)) 0px 0px 0px -3px,
+        rgb(var(--success-color)) 0px 0px,
+        rgb(var(--background-color)) 0px 0px 0px -3px,
+        rgb(var(--success-color)) 0px 0px;
+}
+
+.btn-alert {
+    box-shadow: rgb(var(--alert-color)) 0px 0px 0px 2px inset,
+        rgb(var(--background-color)) 0px 0px 0px -3px,
+        rgb(var(--alert-color)) 0px 0px,
+        rgb(var(--background-color)) 0px 0px 0px -3px,
+        rgb(var(--alert-color)) 0px 0px;
+}
+
+.btn-warning {
+    box-shadow: rgb(var(--warning-color)) 0px 0px 0px 2px inset,
+        rgb(var(--background-color)) 0px 0px 0px -3px,
+        rgb(var(--warning-color)) 0px 0px,
+        rgb(var(--background-color)) 0px 0px 0px -3px,
+        rgb(var(--warning-color)) 0px 0px;
+}
+
+
+.btn[disabled] {
+    color: rgba(var(--text-color), 0.5);
+    cursor: not-allowed;
+}
+
+.btn-wide {
+    min-width: 12em;
+    width: 12em;
+}
+
+.inpt {
+    all: unset;
+    background: rgb(var(--background-color));
+    color: rgb(var(--text-color));
+    padding: 0.5rem;
+    border: 2px solid rgb(var(--border-color));
+    transition: border 0.2s ease-in-out;
+}
+
+.inpt[type="checkbox"] {
+    width: .4rem;
+    height: .4rem;
+}
+
+.inpt[type="checkbox"]:checked {
+    background: rgb(var(--success-color));
+}
+
+.inpt-success {
+    border-color: rgb(var(--success-color));
+}
+
+.hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.hero h1 {
+    font-size: 3rem;
+    font-family: var(--code-font);
+}
+
+.hero b {
+    color: rgba(var(--text-color), 0.5);
+}
+
+.hero.hero-top {
+    justify-content: flex-start;
+}
+
+td.checkbox,
+th.checkbox {
+    text-align: center;
+}
+
+.newDataTable input[type="checkbox"] {
+    scale: 2;
+}

@@ -1,0 +1,121 @@
+---
+import DefaultLayout from "../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="OTP Anmeldung">
+    <div class="hero">
+        <form class="frm frm-wide" id="login-frm">
+            <h1>Anmeldung</h1>
+            <div class="frm-group">
+                <label for="otp">OTP:</label>
+                <input class="inpt" type="text" id="otp" name="otp" required />
+                <span id="otpMsg" class="error-message text-alert"></span>
+            </div>
+            <button type="submit" class="btn btn-wide btn-alert">Log In</button>
+        </form>
+
+        <style scoped>
+            .error-message {
+                min-height: 1.6rem;
+            }
+
+            button {
+                margin-bottom: 1rem;
+            }
+
+            .hidden {
+                display: none;
+            }
+        </style>
+
+        <script>
+            import { isLoggedIn, loginOTP } from "../pocketbase";
+
+            const loginFrm = document.getElementById(
+                "login-frm",
+            ) as HTMLFormElement;
+            const otpInpt = loginFrm.querySelector("#otp") as HTMLInputElement;
+            const loginBtn = loginFrm.querySelector(
+                "button",
+            ) as HTMLButtonElement;
+
+            const otpMsg = loginFrm.querySelector("#otpMsg") as HTMLSpanElement;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const otp = urlParams.get("otp");
+            if (otp) {
+                otpInpt.value = otp;
+                submitForm(new Event("submit"));
+            }
+
+            function checkValid() {
+                let valid = true;
+                otpMsg.textContent = "";
+
+                if (otpInpt.value.length < 8) {
+                    valid = false;
+                    otpMsg.textContent =
+                        "Bitte geben Sie das Passwort ein, welches ihnen per E-Mail geschickt wurde.";
+                }
+
+                markValid(valid);
+            }
+
+            /**
+             * Marks the form as valid or invalid
+             * @param {boolean} isValid - Whether the form is valid
+             */
+            function markValid(isValid: boolean) {
+                if (isValid) {
+                    loginBtn.disabled = false;
+                    loginBtn.classList.remove("btn-alert");
+                    loginBtn.classList.add("btn-success");
+                } else {
+                    loginBtn.disabled = true;
+                    loginBtn.classList.remove("btn-success");
+                    loginBtn.classList.add("btn-alert");
+                }
+            }
+
+            async function submitForm(e: Event) {
+                e.preventDefault();
+                const id = checkHasId();
+                const otp = otpInpt.value.toLowerCase().trim();
+                const ok = await loginOTP(id, otp);
+                if (ok) {
+                    checkLoggedIn();
+                } else {
+                    otpMsg.textContent = "OTP ist falsch oder abgelaufen.";
+                }
+            }
+
+            function checkLoggedIn() {
+                if (isLoggedIn()) {
+                    window.location.href = "/";
+                }
+            }
+
+            function checkHasId() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get("id");
+                if (!id) {
+                    window.location.href = "/login";
+                    return "";
+                }
+
+                return id;
+            }
+
+            function clearOTP() {
+                otpInpt.value = "";
+            }
+
+            document.addEventListener("DOMContentLoaded", clearOTP);
+            document.addEventListener("DOMContentLoaded", checkHasId);
+            document.addEventListener("DOMContentLoaded", checkLoggedIn);
+            document.addEventListener("DOMContentLoaded", checkValid);
+            otpInpt.addEventListener("input", checkValid);
+            loginFrm.addEventListener("submit", submitForm);
+        </script>
+    </div>
+</DefaultLayout>

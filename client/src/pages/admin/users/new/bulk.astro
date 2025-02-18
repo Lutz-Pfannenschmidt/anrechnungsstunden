@@ -1,0 +1,152 @@
+---
+import MustAdmin from "../../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Benutzerverwaltung">
+    <MustAdmin />
+
+    <h1>Benutzerverwaltung | Neue Benutzer</h1>
+
+    <form class="frm frm-wide" id="create-frm">
+        <div class="frm-group">
+            <label for="domain">Domain:</label>
+            <input
+                class="inpt"
+                type="text"
+                id="domain"
+                name="domain"
+                required
+            />
+            <span id="domainMsg" class="error-message text-alert"></span>
+        </div>
+
+        <table id="users">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Kürzel</th>
+                    <th>E-Mail</th>
+                </tr>
+            </thead>
+            <tbody> </tbody>
+        </table>
+
+        <button class="btn btn-success btn-wide" type="submit"
+            >Benutzer erstellen</button
+        >
+    </form>
+
+    <style>
+        h1,
+        h2,
+        p {
+            text-align: center;
+        }
+
+        form {
+            margin: 0 auto;
+        }
+    </style>
+
+    <script>
+        import { pb } from "../../../../pocketbase";
+
+        const createFrm = document.getElementById(
+            "create-frm",
+        ) as HTMLFormElement;
+        const submitBtn = createFrm.querySelector(
+            "button",
+        ) as HTMLButtonElement;
+
+        const domainInpt = createFrm.querySelector(
+            "#domain",
+        ) as HTMLInputElement;
+        const domainMsg = createFrm.querySelector(
+            "#domainMsg",
+        ) as HTMLSpanElement;
+
+        const usersTable = document.getElementById("users") as HTMLTableElement;
+        const usersTbody = usersTable.querySelector(
+            "tbody",
+        ) as HTMLTableSectionElement;
+
+        const params = new URLSearchParams(window.location.search);
+        const users = params.get("users")?.split(",") || [];
+
+        if (users.length === 0) {
+            window.location.href = "/admin/users/";
+        }
+
+        users.forEach((user) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td>${user}</td>
+            <td><input type="text" name="short" id="short_${user}"  /></td>
+            <td><input type="text" name="email" id="email_${user}"  /></td>
+        `;
+            usersTbody.appendChild(tr);
+
+            const shortInpt = tr.querySelector(
+                `#short_${user}`,
+            ) as HTMLInputElement;
+            const emailInpt = tr.querySelector(
+                `#email_${user}`,
+            ) as HTMLInputElement;
+
+            function autoFill() {
+                emailInpt.value = `${shortInpt.value}@${domainInpt.value}`;
+            }
+
+            shortInpt.addEventListener("input", autoFill);
+            domainInpt.addEventListener("input", autoFill);
+        });
+
+        function submit(e: Event) {
+            e.preventDefault();
+            domainMsg.innerText = "";
+
+            const data = users.map((user) => {
+                const short = (
+                    createFrm.querySelector(
+                        `#short_${user}`,
+                    ) as HTMLInputElement
+                ).value;
+                const email = (
+                    createFrm.querySelector(
+                        `#email_${user}`,
+                    ) as HTMLInputElement
+                ).value;
+
+                if (!short || !email) {
+                    return null;
+                }
+
+                return { user, short, email };
+            });
+
+            if (data.some((d) => d === null)) {
+                domainMsg.innerText = "Bitte füllen Sie alle Felder aus.";
+                return;
+            }
+
+            for (const d of data) {
+                if (!d) {
+                    continue;
+                }
+                const pwd = Math.random().toString(36).slice(-8) + "aA1!";
+                const recordData = {
+                    password: pwd,
+                    passwordConfirm: pwd,
+                    verified: true,
+                    email: d.email.trim().toLowerCase(),
+                    name: d.user.trim().toLowerCase(),
+                    short: d.short.trim().toLowerCase(),
+                };
+                pb.collection("users").create(recordData, { requestKey: null });
+            }
+        }
+
+        createFrm.addEventListener("submit", submit);
+    </script>
+</DefaultLayout>

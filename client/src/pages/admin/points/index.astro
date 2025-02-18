@@ -1,0 +1,171 @@
+---
+import MustAdmin from "../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Punkteverwaltung">
+    <MustAdmin />
+
+    <h1>Punkteverwaltung</h1>
+
+    <p class="text-alert">Achtung! Bitte auf Rechtschreibung achten!</p>
+
+    <table id="points">
+        <thead>
+            <tr>
+                <th>Unterricht</th>
+                <th>Stufe</th>
+                <th>Punkte pro Klausur</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="center">
+        <button id="new_button" class="btn btn-success">Neuer Eintrag</button>
+    </div>
+
+    <div id="new_popover" popover>
+        <h2>Neuer Eintrag</h2>
+        <form id="new_form">
+            <label for="subject">Unterricht</label>
+            <input type="text" id="subject" name="subject" required />
+
+            <label for="grade">Stufe</label>
+            <input type="text" id="grade" name="grade" required />
+
+            <label for="points">Punkte pro Klausur</label>
+            <input type="number" id="points" name="points" required />
+
+            <div class="center">
+                <button type="submit" class="btn btn-success">Speichern</button>
+            </div>
+        </form>
+    </div>
+
+    <style scoped>
+        h1,
+        h2,
+        p {
+            text-align: center;
+        }
+
+        button {
+            margin: 1rem 0;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: large;
+        }
+
+        #new_form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 90%;
+            margin: 0 auto;
+        }
+    </style>
+
+    <script>
+        import { pb, putExamPoints } from "../../../pocketbase";
+
+        let points = await pb.collection("current_exam_points").getFullList();
+
+        const table = document.getElementById("points") as HTMLTableElement;
+        const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
+        const new_button = document.getElementById(
+            "new_button",
+        ) as HTMLButtonElement;
+        const new_popover = document.getElementById(
+            "new_popover",
+        ) as HTMLDivElement;
+        const new_form = document.getElementById("new_form") as HTMLFormElement;
+
+        pb.collection("exam_points").subscribe("*", async function (e) {
+            points = await pb.collection("current_exam_points").getFullList();
+            fillTable();
+        });
+
+        function fillTable() {
+            tbody.innerHTML = "";
+            for (const point of points) {
+                const tr = document.createElement("tr");
+
+                const subject = document.createElement("td");
+                subject.textContent = point.subject;
+                tr.appendChild(subject);
+
+                const grade = document.createElement("td");
+                grade.textContent = point.grade;
+                tr.appendChild(grade);
+
+                const points = document.createElement("td");
+                points.textContent = point.points;
+                tr.appendChild(points);
+
+                const actions = document.createElement("td");
+                const delete_button = document.createElement("a");
+                delete_button.textContent = "Löschen";
+                delete_button.href = "#";
+                delete_button.addEventListener(
+                    "click",
+                    async function (e: Event) {
+                        e.preventDefault();
+                        try {
+                            await pb.collection("exam_points").delete(point.id);
+                        } catch (e) {
+                            console.log(e);
+                        }
+                    },
+                );
+                const edit_button = document.createElement("a");
+                edit_button.textContent = "Bearbeiten";
+                edit_button.href = "#";
+                edit_button.style.marginRight = "1rem";
+                edit_button.addEventListener(
+                    "click",
+                    async function (e: Event) {
+                        e.preventDefault();
+                        new_form.subject.value = point.subject;
+                        new_form.grade.value = point.grade;
+                        new_form.points.value = point.points;
+                        new_popover.showPopover();
+                    },
+                );
+                actions.appendChild(edit_button);
+                actions.appendChild(delete_button);
+                tr.appendChild(actions);
+
+                tbody.appendChild(tr);
+            }
+        }
+
+        new_form.addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const subject = new_form.subject.value.trim().toLowerCase();
+            const grade = new_form.grade.value.trim().toUpperCase();
+            const points = new_form.points.value.trim();
+
+            const id = await putExamPoints(subject, grade, points);
+            if (id === "") {
+                alert("Eintrag konnte nicht gespeichert werden.");
+                return;
+            }
+
+            new_popover.hidePopover();
+        });
+
+        function openPopover() {
+            new_form.reset();
+            new_popover.showPopover();
+        }
+
+        new_button.addEventListener("click", openPopover);
+
+        fillTable();
+    </script>
+</DefaultLayout>

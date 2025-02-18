@@ -1,0 +1,144 @@
+---
+import MustAdmin from "../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Halbjahresverwaltung">
+    <MustAdmin />
+
+    <h1>Halbjahresverwaltung</h1>
+
+    <a href="/admin/data/new" class="btn btn-wide btn-success"
+        >Neuen Halbjahresabschluss starten</a
+    >
+
+    <table id="years">
+        <thead>
+            <tr>
+                <th>Schuljahr</th>
+                <th>Halbjahr</th>
+                <th>Status</th>
+                <th>Bearbeitet</th>
+                <th>Dateien</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</DefaultLayout>
+
+<style>
+    h1,
+    h2,
+    p {
+        text-align: center;
+    }
+
+    .btn {
+        display: block;
+        margin: 1rem auto;
+        max-width: 50%;
+        min-width: fit-content;
+        text-align: center;
+    }
+</style>
+
+<script>
+    import { pb } from "../../../pocketbase";
+
+    const years = await pb.collection("years").getFullList();
+    console.log(years);
+
+    const table = document.getElementById("years") as HTMLTableElement;
+    const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
+
+    main();
+    async function main() {
+        const token = await pb.files.getToken();
+
+        for (const year of years) {
+            const tr = document.createElement("tr");
+
+            const yearStr = `${year.start_year}/${(year.start_year + 1).toString().substring(2)}`;
+            const semesterStr =
+                year.semester === 1 ? "1. Halbjahr" : "2. Halbjahr";
+            const changeDate = new Date(year.updated);
+            const changeStr = changeDate.toLocaleString("de-DE");
+            const href = pb.files.getURL(year, year.file, { token: token });
+
+            let state = document.createElement("span");
+            switch (year.state) {
+                case "uploaded":
+                    state.innerHTML = `
+                        Wartet auf
+                        <a href="/admin/data/new2/?year=${year.start_year}&semester=${year.semester}" class="text-warning bold">nächsten Schritt</a>`;
+                    state.classList.add("text-warning");
+                    break;
+
+                case "parsed":
+                    state.textContent = "Wartet auf Freischaltung";
+                    state.classList.add("text-warning");
+                    break;
+
+                case "open":
+                    state.innerHTML = `
+                        Offen für Einsendungen.
+                        <a href="/admin/data/close/?year=${year.start_year}&semester=${year.semester}" class="text-success bold">Schließen</a>`;
+                    state.classList.add("text-success");
+                    break;
+
+                case "closed":
+                    state.innerHTML = `Einsendungen geschlossen.
+                        <a href="/admin/data/closed/?year=${year.start_year}&semester=${year.semester}" class="text-success bold">Daten ansehen</a>`;
+                    state.classList.add("text-success");
+                    break;
+
+                default:
+                    state.textContent = "Fehler";
+                    state.classList.add("text-error");
+                    break;
+            }
+
+            const delBtn = document.createElement("a");
+            delBtn.href = "#";
+            delBtn.textContent = "Löschen";
+            delBtn.classList.add("text-error");
+            const onDel = async () => {
+                if (confirm("Wirklich löschen?")) {
+                    await pb.collection("years").delete(year.id);
+                    tr.remove();
+                }
+            };
+            delBtn.onclick = onDel;
+
+            let showPdf = false;
+            let pdfHref = "";
+            try {
+                const result = await pb
+                    .collection("results")
+                    .getFirstListItem(`semester="${year.id}"`);
+
+                showPdf = year.state === "closed" && result.pdf !== "";
+                pdfHref = pb.files.getURL(result, result.pdf, {
+                    token: token,
+                });
+            } catch (e) {}
+
+            tr.innerHTML = `
+                <td>${yearStr}</td>
+                <td>${semesterStr}</td>
+                <td>${state.outerHTML}</td>
+                <td>${changeStr}</td>
+                <td>
+                    <a href="${href}">Eingabetabelle</a>
+                    ${showPdf ? `<a target="_blank" href="${pdfHref}">Pdf</a>` : ""}
+                </td>
+                <td></td>
+            `;
+
+            tr.lastElementChild?.appendChild(delBtn);
+
+            tbody.appendChild(tr);
+        }
+    }
+</script>

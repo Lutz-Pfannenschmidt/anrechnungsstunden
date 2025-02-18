@@ -1,0 +1,193 @@
+---
+import MustAdmin from "../../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Benutzerverwaltung">
+    <MustAdmin />
+
+    <h1>Benutzerverwaltung | Neuer Admin</h1>
+
+    <form class="frm frm-wide" id="create-frm">
+        <div class="frm-group">
+            <label for="email">E-Mail:</label>
+            <input class="inpt" type="email" id="email" name="email" required />
+            <span id="emailMsg" class="error-message text-alert"></span>
+        </div>
+        <div class="frm-group">
+            <label for="email2">E-Mail bestätigen:</label>
+            <input
+                class="inpt"
+                type="email"
+                id="email2"
+                name="email2"
+                required
+            />
+            <span id="email2Msg" class="error-message text-alert"></span>
+        </div>
+        <div class="frm-group">
+            <label for="email">Passwort:</label>
+            <input
+                class="inpt"
+                type="password"
+                id="password"
+                name="password"
+                required
+            />
+            <span id="passwordMsg" class="error-message text-alert"></span>
+        </div>
+        <div class="frm-group">
+            <label for="email">Passwort bestätigen:</label>
+            <input
+                class="inpt"
+                type="password"
+                id="password2"
+                name="password2"
+                required
+            />
+            <span id="password2Msg" class="error-message text-alert"></span>
+        </div>
+
+        <button class="btn btn-alert btn-wide" disabled type="submit"
+            >Admin erstellen</button
+        >
+
+        <span id="msg" class="error-message text-alert"></span>
+    </form>
+</DefaultLayout>
+
+<style>
+    h1,
+    h2,
+    p {
+        text-align: center;
+    }
+
+    form {
+        margin: 0 auto;
+    }
+</style>
+
+<script>
+    import { isValidEmail } from "../../../../email";
+    import { pb } from "../../../../pocketbase";
+
+    const createFrm = document.getElementById("create-frm") as HTMLFormElement;
+    const submitBtn = createFrm.querySelector("button") as HTMLButtonElement;
+
+    const emailInpt = createFrm.querySelector("#email") as HTMLInputElement;
+    const email2Inpt = createFrm.querySelector("#email2") as HTMLInputElement;
+    const pwdInpt = createFrm.querySelector("#password") as HTMLInputElement;
+    const pwd2Inpt = createFrm.querySelector("#password2") as HTMLInputElement;
+
+    const emailMsg = createFrm.querySelector("#emailMsg") as HTMLSpanElement;
+    const email2Msg = createFrm.querySelector("#email2Msg") as HTMLSpanElement;
+    const pwdMsg = createFrm.querySelector("#passwordMsg") as HTMLSpanElement;
+    const pwd2Msg = createFrm.querySelector("#password2Msg") as HTMLSpanElement;
+
+    const msg = createFrm.querySelector("#msg") as HTMLSpanElement;
+
+    async function submitForm(event: Event) {
+        event.preventDefault();
+
+        if (!checkValid()) {
+            return;
+        }
+
+        const email = emailInpt.value;
+        const email2 = email2Inpt.value;
+        const password = pwdInpt.value;
+        const password2 = pwd2Inpt.value;
+
+        if (email !== email2) {
+            email2Msg.textContent =
+                "Die E-Mail-Adressen stimmen nicht überein.";
+            return;
+        }
+
+        if (password !== password2) {
+            pwd2Msg.textContent = "Die Passwörter stimmen nicht überein.";
+            return;
+        }
+
+        const data = {
+            password: password,
+            passwordConfirm: password2,
+            email: email,
+            emailVisibility: true,
+            verified: true,
+        };
+
+        try {
+            const record = await pb.collection("_superusers").create(data);
+        } catch (error: any) {
+            msg.textContent =
+                "Fehler beim Erstellen des Admins: Möglicherweise existiert bereits ein Admin mit dieser E-Mail-Adresse.";
+            return;
+        }
+
+        window.location.href = "/admin/users/";
+
+        checkValid();
+    }
+
+    function checkValid() {
+        let valid = true;
+        emailMsg.textContent = "";
+        email2Msg.textContent = "";
+        pwdMsg.textContent = "";
+        pwd2Msg.textContent = "";
+
+        if (!isValidEmail(emailInpt.value)) {
+            valid = false;
+            emailMsg.textContent =
+                "Bitte geben Sie eine gültige E-Mail-Adresse ein.";
+        }
+
+        if (!isValidEmail(email2Inpt.value)) {
+            valid = false;
+            email2Msg.textContent =
+                "Bitte geben Sie eine gültige E-Mail-Adresse ein.";
+        }
+
+        if (pwdInpt.value.length < 8) {
+            valid = false;
+            pwdMsg.textContent =
+                "Das Passwort muss mindestens 8 Zeichen lang sein.";
+        }
+
+        if (pwd2Inpt.value.length < 8) {
+            valid = false;
+            pwd2Msg.textContent =
+                "Das Passwort muss mindestens 8 Zeichen lang sein.";
+        }
+
+        if (emailInpt.value !== email2Inpt.value) {
+            valid = false;
+            email2Msg.textContent =
+                "Die E-Mail-Adressen stimmen nicht überein.";
+        }
+
+        if (pwdInpt.value !== pwd2Inpt.value) {
+            valid = false;
+            pwd2Msg.textContent = "Die Passwörter stimmen nicht überein.";
+        }
+
+        markValid(valid);
+        return valid;
+    }
+
+    function markValid(isValid: boolean) {
+        submitBtn.disabled = !isValid;
+        submitBtn.classList.toggle("btn-alert", !isValid);
+        submitBtn.classList.toggle("btn-success", isValid);
+    }
+
+    document.addEventListener("DOMContentLoaded", checkValid);
+    emailInpt.addEventListener("input", checkValid);
+    email2Inpt.addEventListener("input", checkValid);
+    pwdInpt.addEventListener("input", checkValid);
+    pwd2Inpt.addEventListener("input", checkValid);
+
+    createFrm.addEventListener("submit", submitForm);
+</script>

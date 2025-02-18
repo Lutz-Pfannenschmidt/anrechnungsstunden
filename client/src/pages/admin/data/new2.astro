@@ -1,0 +1,448 @@
+---
+import MustAdmin from "../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Halbjahresverwaltung">
+    <MustAdmin />
+
+    <h1>Halbjahresabschluss Schritt 2</h1>
+    <p id="date"></p>
+    <h2>
+        Bitte alle Lehrpersonen anklicken, die berücksichtigt werden sollen.
+    </h2>
+
+    <table id="data">
+        <thead>
+            <tr>
+                <th>Lehrer:in</th>
+                <th>Durchschnittliche Stunden / Woche</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div class="hero">
+        <button type="submit" id="submit" class="btn btn-wide btn-success"
+            >Weiter</button
+        >
+    </div>
+
+    <div id="user_popover" popover>
+        <h1>Benutzerzuweisung</h1>
+        <p>
+            Bitte tragen Sie die E-Mail-Adressen und Kürzel der Lehrpersonen
+            ein. <br /> Für bereits existierende Nutzer werden die Felder automatisch
+            gefüllt. <br /> Sollte ein manuell eingegebenes Kürzel bereits existieren,
+            wird die E-Mail-Adresse automatisch eingetragen. <br /> Sollte für ein
+            Kürzel keine E-Mail-Adresse eingetragen werden, wird die E-Mail-Adresse
+            aus der eingegebenen Domain und dem Kürzel generiert. <br /> Diese kann
+            manuell bearbeitet werden, falls sie nicht korrekt ist.
+        </p>
+
+        <div class="frm-group">
+            <label for="password">Domain:</label>
+            <input class="inpt" type="text" id="domain" name="domain" />
+        </div>
+
+        <table id="users">
+            <colgroup>
+                <col span="1" style="width: 30%;" />
+                <col span="1" style="width: 20%;" />
+                <col span="1" style="width: 50%;" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Kürzel</th>
+                    <th>E-Mail</th>
+                </tr>
+            </thead>
+            <tbody> </tbody>
+        </table>
+
+        <p class="text-warning">
+            Durch das Klicken auf "Weiter" wird für Lehrpersonen, die noch kein
+            Konto haben, eines mit den eingegebenen Daten erstellt.
+        </p>
+
+        <p class="text-alert" id="userMsg"></p>
+
+        <div class="center">
+            <button
+                type="submit"
+                id="confirm_users"
+                class="btn btn-wide btn-success">Weiter</button
+            >
+        </div>
+    </div>
+</DefaultLayout>
+
+<style scoped>
+    h1,
+    h2,
+    p {
+        text-align: center;
+    }
+
+    h1 {
+        margin-bottom: 0;
+    }
+
+    .hero {
+        padding: 2rem;
+    }
+
+    tbody td,
+    tbody tr {
+        cursor: pointer;
+    }
+
+    p {
+        margin-top: 0;
+    }
+
+    [popover] {
+        overflow-y: scroll;
+        height: auto;
+    }
+
+    #users {
+        width: 100%;
+    }
+
+    #users input {
+    }
+
+    #user_popover {
+        width: 80%;
+        margin: 3rem auto;
+    }
+
+    #user_popover .frm-group {
+        width: 80%;
+        margin: 0 auto;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #user_popover .frm-group label {
+        font-size: large;
+        font-weight: bold;
+    }
+</style>
+
+<script>
+    import { createUser, pb, putData, getUserId } from "../../../pocketbase";
+    import { toast } from "../../../toast";
+    import { toUpperCaseFirst } from "../../../string";
+
+    const table = document.getElementById("data") as HTMLTableElement;
+    const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
+    const submitBtn = document.getElementById("submit") as HTMLButtonElement;
+
+    const user_popover = document.getElementById(
+        "user_popover",
+    ) as HTMLDivElement;
+    const domainInput = user_popover.querySelector(
+        "#domain",
+    ) as HTMLInputElement;
+    const confirmBtn = user_popover.querySelector(
+        "#confirm_users",
+    ) as HTMLButtonElement;
+    const userMsg = user_popover.querySelector(
+        "#userMsg",
+    ) as HTMLParagraphElement;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const year = parseInt(urlParams.get("year") || "");
+    const semester = parseInt(urlParams.get("semester") || "");
+
+    if (isNaN(year) || isNaN(semester) || semester < 1 || semester > 2) {
+        window.location.href = "/admin/data/";
+    }
+
+    const yearStr = `${year}/${(year + 1).toString().substring(2)}`;
+    const semStr = `${semester}. Halbjahr`;
+
+    document.getElementById("date")!.textContent = `${yearStr}, ${semStr}`;
+
+    const yearsRecord = await pb
+        .collection("years")
+        .getFirstListItem(`start_year="${year}" && semester ="${semester}"`);
+
+    if (!yearsRecord || yearsRecord.state !== "uploaded") {
+        window.location.href = "/admin/data/";
+    }
+
+    const data = await pb.send("/parse/", {
+        query: { year: year, semester: semester },
+    });
+
+    const sortedData = Object.fromEntries(
+        Object.entries(data)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+            .map(([key, value]) => [key.toLowerCase(), value]),
+    ) as { [key: string]: number };
+
+    for (const key in sortedData) {
+        const tr = document.createElement("tr");
+        tr.setAttribute("name", key);
+        tr.setAttribute("checked", "false");
+
+        let parts = (sortedData[key].toFixed(3).toString() + ".").split(".");
+        let floatStr = `${parts[0].padStart(2, "0")}.${parts[1].padEnd(3, "0")}`;
+
+        tr.innerHTML = `
+            <td>${toUpperCaseFirst(key)}</td>
+            <td>${floatStr}</td>
+        `;
+
+        tr.addEventListener("mousedown", () => {
+            if (user_popover.matches(":popover-open")) {
+                return;
+            }
+
+            const checked = tr.getAttribute("checked") === "true";
+            tr.setAttribute("checked", (!checked).toString());
+        });
+
+        tbody.appendChild(tr);
+    }
+
+    function submit(e: Event) {
+        const rows = tbody.querySelectorAll("tr");
+        const selected: string[] = [];
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const name = row.getAttribute("name") as string;
+            const checked = row.getAttribute("checked") === "true";
+
+            if (checked) {
+                selected.push(name);
+            }
+        }
+
+        if (selected.length === 0) {
+            alert("Bitte wählen Sie mindestens eine Lehrperson aus.");
+            return;
+        }
+
+        populatePopover(selected);
+        user_popover.showPopover();
+    }
+
+    function populatePopover(selected: string[]) {
+        const users = user_popover.querySelector(
+            "tbody",
+        ) as HTMLTableSectionElement;
+        users.innerHTML = "";
+
+        for (const key of selected) {
+            const tr = document.createElement("tr");
+
+            const name = document.createElement("td");
+            name.textContent = toUpperCaseFirst(key);
+            tr.appendChild(name);
+
+            const short = document.createElement("td");
+            const shortInput = document.createElement("input");
+            shortInput.setAttribute("type", "text");
+            shortInput.setAttribute("name", "short");
+            shortInput.setAttribute("required", "true");
+            short.appendChild(shortInput);
+            tr.appendChild(short);
+
+            const email = document.createElement("td");
+            const emailInput = document.createElement("input");
+            emailInput.setAttribute("type", "email");
+            emailInput.setAttribute("name", "email");
+            emailInput.setAttribute("required", "true");
+            email.appendChild(emailInput);
+            const domain = document.createElement("span");
+            domain.textContent = `@${domainInput.value}`;
+            domain.hidden = emailInput.value.includes("@");
+            email.appendChild(domain);
+
+            domainInput.addEventListener("input", () => {
+                if (emailInput.value.includes("@")) {
+                    domain.hidden = true;
+                    return;
+                } else if (emailInput.value === "") {
+                    domain.textContent = `${shortInput.value}@${domainInput.value}`;
+                    return;
+                }
+                domain.hidden = false;
+                domain.textContent = `@${domainInput.value}`;
+            });
+
+            emailInput.addEventListener("input", () => {
+                if (emailInput.value.includes("@")) {
+                    domain.hidden = true;
+                    return;
+                } else if (emailInput.value === "") {
+                    domain.textContent = `${shortInput.value}@${domainInput.value}`;
+                    return;
+                }
+                domain.hidden = false;
+                domain.textContent = `@${domainInput.value}`;
+            });
+
+            tr.appendChild(email);
+
+            async function tryExists(name: string) {
+                const record = await pb
+                    .collection("emails")
+                    .getFirstListItem(`acronym="${name.toLowerCase()}"`, {});
+                if (record) {
+                    emailInput.disabled = true;
+                    shortInput.disabled = true;
+                    domain.hidden = true;
+
+                    emailInput.value = record.email;
+
+                    const short = await pb
+                        .collection("shorts")
+                        .getOne(record.email, {});
+                    shortInput.value = short.short;
+                }
+            }
+
+            tryExists(key);
+
+            async function tryShortExists(short: string) {
+                const record = await pb
+                    .collection("emails")
+                    .getFirstListItem(`acronym="${short.toLowerCase()}"`, {});
+                if (record) {
+                    emailInput.disabled = true;
+                    domain.hidden = true;
+                    emailInput.value = record.email;
+                }
+            }
+
+            let timeoutID: number;
+
+            shortInput.addEventListener("input", () => {
+                emailInput.disabled = false;
+                clearTimeout(timeoutID);
+                if (emailInput.value === "") {
+                    domain.textContent = `${shortInput.value}@${domainInput.value}`;
+                }
+                if (shortInput.value === "" || shortInput.value.length < 3) {
+                    emailInput.value = "";
+                    domain.hidden = emailInput.value.includes("@");
+                    return;
+                }
+                if (timeoutID === undefined) {
+                    tryShortExists(shortInput.value);
+                    return;
+                }
+                timeoutID = window.setTimeout(() => {
+                    tryShortExists(shortInput.value);
+                }, 500);
+            });
+
+            users.appendChild(tr);
+        }
+    }
+
+    async function confirmUsers(e: Event) {
+        const rows = user_popover
+            .querySelector("tbody")!
+            .querySelectorAll("tr");
+        const users: { [key: string]: string[] } = {};
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const name = row
+                .querySelector("td")!
+                .textContent?.toLowerCase() as string;
+            const short = (
+                row.querySelector("input[name=short]") as HTMLInputElement
+            ).value;
+            let email =
+                (row.querySelector("input[name=email]") as HTMLInputElement)
+                    .value || `${short}@${domainInput.value}`;
+            if (!email.includes("@")) {
+                email = `${email}@${domainInput.value}`;
+            }
+
+            let valid = true;
+            userMsg.textContent = "";
+            if (short.length < 3) {
+                userMsg.textContent =
+                    "Kürzel muss mindestens 3 Zeichen lang sein.";
+                valid = false;
+            }
+
+            if (email.length < 5) {
+                userMsg.textContent =
+                    "E-Mail-Adresse muss mindestens 5 Zeichen lang sein.";
+                valid = false;
+            }
+
+            if (!valid) {
+                return;
+            }
+
+            users[name] = [short, email];
+        }
+
+        let valid = true;
+        for (const key in users) {
+            const [short, email] = users[key];
+            let id = await getUserId(email);
+            if (id === "") {
+                id = await createUser(email, key, short);
+                if (id === "") {
+                    toast(
+                        "error",
+                        `Fehler beim Erstellen des Benutzers für ${toUpperCaseFirst(key)}.`,
+                    );
+                    valid = false;
+                    continue;
+                }
+            }
+
+            const data_id = await putData(id, yearsRecord.id, sortedData[key]);
+            if (data_id === "") {
+                toast(
+                    "error",
+                    `Fehler beim Hinzufügen der Daten für ${toUpperCaseFirst(key)}.`,
+                );
+                valid = false;
+            }
+
+            const must_complete = yearsRecord.must_complete as string[];
+            must_complete.push(id);
+            try {
+                await pb.collection("years").update(yearsRecord.id, {
+                    must_complete: must_complete,
+                    state: "open",
+                });
+
+                setTimeout(() => {
+                    window.location.href = "/admin/data/";
+                }, 1000);
+            } catch (e) {
+                toast(
+                    "error",
+                    `Fehler beim Aktualisieren des Halbjahresabschlusses für ${toUpperCaseFirst(key)}.`,
+                );
+                valid = false;
+            }
+        }
+        if (!valid) {
+            toast(
+                "error",
+                "Fehler beim Hinzufügen der Daten. Bitte überprüfen Sie die Eingaben.",
+            );
+            submitBtn.click();
+            return;
+        }
+    }
+
+    submitBtn.addEventListener("click", submit);
+    confirmBtn.addEventListener("click", confirmUsers);
+</script>

@@ -1,0 +1,93 @@
+<nav>
+    <a id="home" href="/">Hauptseite</a>
+
+    <div class="loggedin" style="display: none;">
+        <a href="/" class="right" id="logout">Abmelden</a>
+        <span class="right" id="username"></span>
+    </div>
+    <div class="loggedout">
+        <a href="/login" class="right">Anmelden</a>
+    </div>
+</nav>
+
+<script>
+    import { logout } from "../pocketbase";
+    const logoutButton = document.getElementById("logout") as HTMLAnchorElement;
+    logoutButton.addEventListener("click", () => {
+        logout();
+        window.location.href = "/";
+    });
+</script>
+
+<script>
+    import { isLoggedIn, isSuperuser, pb } from "../pocketbase";
+    import { toUpperCaseFirst } from "../string";
+    const loggedin = document.querySelector(".loggedin") as HTMLElement;
+    const loggedout = document.querySelector(".loggedout") as HTMLElement;
+    const uname = document.getElementById("username") as HTMLAnchorElement;
+
+    const home = document.getElementById("home") as HTMLAnchorElement;
+
+    updateNav();
+    function updateNav() {
+        if (!isLoggedIn()) {
+            loggedin.style.display = "none";
+            loggedout.style.display = "block";
+            return;
+        }
+
+        loggedin.style.display = "block";
+        loggedout.style.display = "none";
+
+        if (isSuperuser()) {
+            uname.innerText = pb.authStore.record?.email + " | Admin";
+            home.href = "/admin/index.html";
+            return;
+        }
+
+        uname.innerText =
+            toUpperCaseFirst(pb.authStore.record?.name) +
+            " | " +
+            pb.authStore.record?.short.toUpperCase();
+    }
+</script>
+
+<style lang="scss">
+    nav {
+        background-color: var(--accent-color);
+        overflow: hidden;
+        border-bottom: 1px solid rgb(var(--border-color));
+
+        a,
+        span {
+            float: left;
+            display: block;
+            color: rgb(var(--text-color));
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+
+            line-height: 2em;
+            font-size: 1.2em;
+
+            border-right: 1px solid rgb(var(--border-color));
+
+            &.right {
+                float: right;
+                border-right: 0px;
+                border-left: 1px solid rgb(var(--border-color));
+            }
+        }
+
+        a {
+            transition:
+                background-color 0.3s,
+                color 0.3s;
+
+            &:hover {
+                background-color: rgb(var(--border-color));
+                color: rgb(var(--text-color));
+            }
+        }
+    }
+</style>

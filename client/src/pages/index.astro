@@ -1,0 +1,472 @@
+---
+import AdminRedirect from "../components/AdminRedirect.astro";
+import MustLogin from "../components/MustLogin.astro";
+import DefaultLayout from "../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Entlastungsberechnung">
+    <AdminRedirect />
+    <MustLogin />
+
+    <h1>Berechnung der Anrechnungsstunden</h1>
+    <p id="status"></p>
+
+    <div id="wrapper">
+        <form>
+            <div class="frm-group">
+                <label for="name">Name:</label>
+                <input
+                    class="inpt"
+                    type="text"
+                    id="name"
+                    name="name"
+                    disabled
+                />
+            </div>
+            <div class="frm-group">
+                <label for="hours">Tatsächlich erteilte Stundenzahl:</label>
+                <input
+                    class="inpt"
+                    type="text"
+                    id="hours"
+                    name="hours"
+                    disabled
+                />
+            </div>
+            <span>
+                1. Für Jeden Kurs bitte die Stufe und Anzahl Klausuren eingeben.
+            </span>
+            <span>2. Die Anrechnungspunkte werden automatisch berechnet.</span>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kurs</th>
+                        <th>Stufe</th>
+                        <th>Anzahl Klausuren</th>
+                        <th>Anrechnungspunkte pro Klausur</th>
+                        <th>Anrechnungspunkte</th>
+                    </tr>
+                </thead>
+                <tbody> </tbody>
+            </table>
+
+            <div class="frm-group">
+                <label for="class_lead">Klassenleitung Anteil in %:</label>
+                <input
+                    class="inpt"
+                    type="number"
+                    name="class_lead"
+                    id="class_lead"
+                    min="0"
+                    value="0"
+                />
+            </div>
+
+            <button type="submit" class="btn btn-wide btn-success"
+                >Abgeben</button
+            >
+        </form>
+    </div>
+</DefaultLayout>
+
+<style scoped>
+    h1,
+    h2 {
+        text-align: center;
+        margin-bottom: 0;
+    }
+
+    form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 80%;
+        margin: 0 auto;
+    }
+
+    .frm-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1rem;
+    }
+
+    #status {
+        text-align: center;
+        margin-top: 0;
+    }
+</style>
+
+<script>
+    import type { ListResult, RecordModel } from "pocketbase";
+    import {
+        getTeacherData,
+        pb,
+        putClassLead,
+        putTeacherData,
+    } from "../pocketbase";
+    import { toUpperCaseFirst } from "../string";
+
+    const status = document.getElementById("status") as HTMLParagraphElement;
+    const wrapper = document.getElementById("wrapper") as HTMLDivElement;
+    const form = document.querySelector("form") as HTMLFormElement;
+    const tbody = document.querySelector("tbody") as HTMLTableSectionElement;
+    const classLeadInput = document.getElementById(
+        "class_lead",
+    ) as HTMLInputElement;
+    const submitButton = form.querySelector("button") as HTMLButtonElement;
+
+    const nameInput = document.getElementById("name") as HTMLInputElement;
+    const hoursInput = document.getElementById("hours") as HTMLInputElement;
+
+    import { toast } from "../toast";
+
+    const tasks = await pb.collection("tasks").getFullList();
+    if (tasks.length === 0) {
+        status.textContent = "Immoment ist nichts zu tun!";
+        wrapper.innerHTML = "";
+    } else {
+        populateForm();
+        submitButton.addEventListener("click", submit);
+    }
+
+    async function submit(e: Event) {
+        e.preventDefault();
+        const data = new FormData(form);
+        const classLeadPercentage = parseInt(data.get("class_lead") as string);
+
+        const rows = tbody.querySelectorAll("tr");
+        const rowData = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.classList.contains("plus-row")) {
+                continue;
+            }
+
+            const subject = (
+                row.querySelector("select[name='subject']") as HTMLSelectElement
+            ).value;
+            const grade = (
+                row.querySelector("select[name='grade']") as HTMLSelectElement
+            ).value;
+            const students = parseInt(
+                (
+                    row.querySelector(
+                        "input[name='students']",
+                    ) as HTMLInputElement
+                ).value,
+            );
+
+            if (
+                students < 0 ||
+                isNaN(students) ||
+                grade === "0" ||
+                subject === "0"
+            ) {
+                continue;
+            }
+
+            rowData.push({ subject, grade, students });
+        }
+
+        const records = (await getTeacherData(
+            pb.authStore.record!.id,
+            tasks[0].year,
+            tasks[0].semester,
+        )) as ListResult<RecordModel>;
+        for (let i = 0; i < records.items.length; i++) {
+            const record = records.items[i];
+            await pb
+                .collection("teacher_data")
+                .delete(record.id, { requestKey: null });
+        }
+
+        for (let i = 0; i < rowData.length; i++) {
+            const { subject, grade, students } = rowData[i];
+            const id = await putTeacherData(
+                pb.authStore.record!.id,
+                tasks[0].year,
+                tasks[0].semester,
+                grade,
+                subject.toLowerCase(),
+                students,
+            );
+            if (id === "") {
+                toast("error", "Fehler beim Speichern der Daten!");
+                return;
+            }
+        }
+
+        const id = await putClassLead(
+            pb.authStore.record!.id,
+            tasks[0].year,
+            tasks[0].semester,
+            classLeadPercentage,
+        );
+        if (id === "") {
+            toast("error", "Fehler beim Speichern der Daten!");
+            return;
+        }
+        toast(
+            "success",
+            "Daten erfolgreich gespeichert!",
+            "Sie sind jetzt fertig!",
+        );
+    }
+
+    async function populateForm() {
+        nameInput.value = toUpperCaseFirst(pb.authStore.record?.name);
+
+        const task = tasks[0];
+        const yearStr = `${task.year}/${(task.year + 1).toString().slice(-2)}`;
+        status.textContent = `Bitte Daten für das ${task.semester}. Halbjahr ${yearStr} eingeben!`;
+
+        const timeStr = `≈ ${task.avg_time.toFixed(3)} Stunden pro Woche`;
+        hoursInput.value = timeStr;
+
+        const subjects = new Set<string>();
+        const grades = new Set<string>();
+
+        const allowedGrades = new Map<string, string[]>();
+
+        const records = await pb
+            .collection("current_exam_points")
+            .getFullList();
+
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            subjects.add(toUpperCaseFirst(record.subject));
+            grades.add(record.grade);
+
+            pushMap(allowedGrades, record.subject, record.grade);
+        }
+
+        const existingRecords = (await getTeacherData(
+            pb.authStore.record!.id,
+            task.year,
+            task.semester,
+        )) as ListResult<RecordModel> | string;
+
+        if (
+            typeof existingRecords == "string" ||
+            existingRecords.items.length === 0
+        ) {
+            addDefaultRows(tbody, subjects, grades, allowedGrades);
+        } else {
+            const records = (existingRecords as ListResult<RecordModel>).items;
+
+            for (let i = 0; i < 3 - records.length; i++) {
+                addRow(tbody, subjects, grades, allowedGrades);
+            }
+
+            for (let i = 0; i < records.length; i++) {
+                const record = records[i];
+                addRow(tbody, subjects, grades, allowedGrades, {
+                    subject: toUpperCaseFirst(record.subject),
+                    grade: record.grade,
+                    students: record.students.toString(),
+                });
+                console.log(record);
+            }
+
+            addPlusRow(tbody, subjects, grades, allowedGrades);
+        }
+    }
+
+    function addDefaultRows(
+        tbody: HTMLTableSectionElement,
+        subjects: string[] | Set<string>,
+        grades: string[] | Set<string>,
+        allowedGrades: Map<string, string[]>,
+    ) {
+        for (let i = 0; i < 3; i++) {
+            addRow(tbody, subjects, grades, allowedGrades);
+        }
+        addPlusRow(tbody, subjects, grades, allowedGrades);
+    }
+
+    function addPlusRow(
+        tbody: HTMLTableSectionElement,
+        subjects: string[] | Set<string>,
+        grades: string[] | Set<string>,
+        allowedGrades: Map<string, string[]>,
+    ) {
+        const tr = document.createElement("tr");
+        tr.classList.add("plus-row");
+        tr.innerHTML = `
+            <td colspan="5" style="text-decoration:underline;cursor:pointer;">Weitere Reihe hinzufügen</td>
+        `;
+        tr.querySelector("td")!.addEventListener("click", () => {
+            addRow(tbody, subjects, grades, allowedGrades);
+        });
+
+        tbody.appendChild(tr);
+    }
+
+    function addRow(
+        tbody: HTMLTableSectionElement,
+        subjects: string[] | Set<string>,
+        grades: string[] | Set<string>,
+        allowedGrades: Map<string, string[]>,
+        data = { subject: "0", grade: "0", students: "0" },
+    ) {
+        const row = document.createElement("tr");
+
+        const subjectSelect = document.createElement("select");
+        subjectSelect.name = "subject";
+        subjectSelect.appendChild(makeDefaultOption());
+        subjects.forEach((subject) => {
+            const option = document.createElement("option");
+            option.value = subject;
+            option.textContent = subject;
+            subjectSelect.appendChild(option);
+        });
+        subjectSelect.value = data.subject;
+        const td1 = document.createElement("td");
+        td1.appendChild(subjectSelect);
+
+        const gradeSelect = document.createElement("select");
+        gradeSelect.name = "grade";
+        gradeSelect.disabled = data.subject === "0";
+        gradeSelect.appendChild(makeDefaultOption());
+        grades.forEach((grade) => {
+            const option = document.createElement("option");
+            option.value = grade;
+            option.textContent = grade;
+            gradeSelect.appendChild(option);
+        });
+        gradeSelect.value = data.grade;
+        const td2 = document.createElement("td");
+        td2.appendChild(gradeSelect);
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.name = "students";
+        input.min = "0";
+        input.value = data.students;
+        const td3 = document.createElement("td");
+        td3.appendChild(input);
+
+        const points_per_exam = document.createElement("td");
+        points_per_exam.textContent = "0";
+
+        const points = document.createElement("td");
+        points.textContent = "0";
+
+        subjectSelect.addEventListener("change", async () => {
+            if (subjectSelect.value === "0") {
+                gradeSelect.disabled = true;
+                gradeSelect.value = "0";
+                return;
+            }
+            const selected = gradeSelect.value;
+
+            const gradeOptions = gradeSelect.querySelectorAll("option");
+            gradeOptions.forEach((option) => {
+                if (option.value !== "0") {
+                    option.remove();
+                } else {
+                    option.selected = true;
+                }
+            });
+
+            const grades = (
+                allowedGrades.get(subjectSelect.value.toLowerCase()) || []
+            ).slice();
+            grades.forEach((grade) => {
+                const option = document.createElement("option");
+                option.value = grade;
+                option.textContent = grade;
+                option.selected = grade === selected;
+                gradeSelect.appendChild(option);
+            });
+            gradeSelect.disabled = false;
+            if (grades.length === 1) {
+                gradeSelect.value = grades[0];
+            } else if ((grades.length = 0)) {
+                gradeSelect.value = "0";
+            }
+
+            if (grades.length > 0) {
+                const defaultOption = gradeSelect.querySelector(
+                    "option[value='0']",
+                ) as HTMLOptionElement;
+                defaultOption!.disabled = true;
+            }
+
+            calcPoints();
+        });
+
+        gradeSelect.addEventListener("change", async () => {
+            if (gradeSelect.value === "0") {
+                points_per_exam.textContent = "0";
+                points.textContent = "0";
+                return;
+            }
+
+            calcPoints();
+        });
+
+        input.addEventListener("input", calcPoints);
+
+        async function getPointsPerExam() {
+            let points_per_exam_value = 0;
+            try {
+                let filter = `subject="${subjectSelect.value.toLowerCase()}"&&`;
+                const gradeInt = parseInt(gradeSelect.value);
+                if (isNaN(gradeInt)) {
+                    filter += `grade="${gradeSelect.value}"`;
+                } else {
+                    filter += `grade=${gradeInt}`;
+                }
+                console.log(filter);
+                const rec = await pb
+                    .collection("current_exam_points")
+                    .getFirstListItem(filter);
+                points_per_exam_value = rec.points;
+            } catch (e) {
+                return 0;
+            }
+            return points_per_exam_value;
+        }
+
+        async function calcPoints() {
+            const points_per_exam_value = await getPointsPerExam();
+            points_per_exam.textContent = points_per_exam_value.toString();
+
+            const points_value = parseInt(input.value) * points_per_exam_value;
+            points.textContent = points_value.toString();
+            if (isNaN(points_value)) {
+                points.textContent = "-";
+            }
+        }
+
+        row.appendChild(td1);
+        row.appendChild(td2);
+        row.appendChild(td3);
+        row.appendChild(points_per_exam);
+        row.appendChild(points);
+        if (tbody.lastElementChild) {
+            tbody.insertBefore(row, tbody.lastElementChild);
+        } else {
+            tbody.appendChild(row);
+        }
+        calcPoints();
+    }
+
+    function makeDefaultOption() {
+        const option = document.createElement("option");
+        option.value = "0";
+        option.textContent = "-- Bitte wählen --";
+        return option;
+    }
+
+    function pushMap(map: Map<string, string[]>, key: string, value: string) {
+        if (!map.has(key)) {
+            map.set(key, []);
+        }
+        const values = map.get(key) as string[];
+        values.push(value);
+        map.set(key, values);
+    }
+</script>

@@ -1,0 +1,11 @@
+<script>
+    import { isLoggedIn, pb } from "../pocketbase";
+
+    if (!isLoggedIn()) {
+        window.location.href = "/admin/login.html";
+    }
+
+    if (pb.authStore.record?.collectionName !== "_superusers") {
+        window.location.href = "/";
+    }
+</script>

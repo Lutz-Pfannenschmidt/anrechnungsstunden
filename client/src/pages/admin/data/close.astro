@@ -1,0 +1,246 @@
+---
+import MustAdmin from "../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Halbjahresverwaltung">
+    <MustAdmin />
+
+    <h1>Halbjahresabschluss abschließen</h1>
+
+    <table id="users">
+        <thead>
+            <tr>
+                <th>Lehrer:in</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <button id="submit" class="btn btn-wide btn-warning">Abschließen</button>
+</DefaultLayout>
+
+<style scoped>
+    h1,
+    h2,
+    p {
+        text-align: center;
+    }
+
+    h1 {
+        margin-bottom: 0;
+    }
+
+    .btn {
+        display: block;
+        margin: 1rem auto;
+        width: 50%;
+    }
+
+    table {
+        margin: 1rem auto;
+        width: 80%;
+    }
+</style>
+
+<script>
+    import type { ListResult, RecordModel } from "pocketbase";
+    import { pb, putResults } from "../../../pocketbase";
+    import { toUpperCaseFirst } from "../../../string";
+    import { toast } from "../../../toast";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const year = urlParams.get("year");
+    const semester = urlParams.get("semester");
+
+    const table = document.getElementById("users") as HTMLTableElement;
+    const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
+    const submit = document.getElementById("submit") as HTMLButtonElement;
+
+    if (!year || !semester) {
+        window.location.href = "/admin/data";
+    }
+
+    const year_data = await pb
+        .collection("years")
+        .getFirstListItem(`start_year="${year}"&&semester="${semester}"`);
+    if (!year_data || year_data.state !== "open") {
+        window.location.href = "/admin/data";
+    }
+
+    let tasks = await pb.collection("tasks").getList(1, 999, {
+        expand: "user",
+        filter: `year=${year} && semester=${semester}`,
+    });
+
+    let must_complete = tasks.items;
+
+    let teacher_data = {} as { [key: string]: ListResult<RecordModel> };
+
+    const exam_points = await pb
+        .collection("current_exam_points")
+        .getFullList();
+
+    let all_done = true;
+    for (let i = 0; i < must_complete.length; i++) {
+        const row = must_complete[i];
+
+        const data = await pb.collection("teacher_data").getList(1, 50, {
+            filter: `year="${year}" && semester="${semester}" && teacher="${row.user}"`,
+            expand: "teacher",
+        });
+
+        teacher_data[row.user] = data;
+
+        const tr = document.createElement("tr");
+        all_done = all_done && data.items.length > 0;
+        tr.innerHTML = `
+            <td>${toUpperCaseFirst(row.expand?.user.name)}</td>
+            <td>${data.items.length > 0 ? "" : "Nicht "} Abgegeben</td>
+        `;
+
+        tbody.appendChild(tr);
+    }
+
+    async function onSubmit() {
+        if (!all_done) {
+            alert(
+                "Nicht alle Lehrer:innen haben den Halbjahresabschluss abgegeben.",
+            );
+            window.location.reload();
+            return;
+        }
+
+        if (
+            !confirm(
+                "Sind Sie sicher, dass Sie den Halbjahresabschluss abschließen möchten?",
+            )
+        ) {
+            return;
+        }
+
+        const amount = parseInt(
+            prompt(
+                "Wie viele Anrechnungsstunden sollen verteilt werden?",
+                "0",
+            ) || "0",
+        );
+        if (isNaN(amount) || amount < 0) {
+            alert("Ungültige Eingabe");
+            window.location.reload();
+            return;
+        }
+
+        const lead_points = parseInt(
+            prompt(
+                "Wie viele Punkte sollen pro Klassenleitung verteilt werden?",
+                "0",
+            ) || "0",
+        );
+
+        const teacher_points = {} as { [key: string]: number };
+
+        for (let i = 0; i < must_complete.length; i++) {
+            const row = must_complete[i];
+            if (teacher_data[row.user].items.length === 0) {
+                alert(
+                    "Nicht alle Lehrer:innen haben den Halbjahresabschluss abgegeben.",
+                );
+                window.location.reload();
+                return;
+            }
+
+            let points = getExamPointsForTeacher(row.user);
+            try {
+                const record = await pb
+                    .collection("class_lead")
+                    .getFirstListItem(`teacher="${row.user}"`);
+                points += (lead_points * record.percentage) / 100;
+            } catch (e) {}
+
+            try {
+                const record = await pb
+                    .collection("time_data")
+                    .getFirstListItem(`user="${row.user}"`);
+                points -= record.avg_time * 7.84;
+            } catch (e) {}
+
+            teacher_points[row.expand!.user.name] = Math.max(0, points);
+        }
+
+        const record = await putResults(
+            year_data.id,
+            distribute(amount, teacher_points),
+            lead_points,
+        );
+
+        console.log(record);
+
+        if (typeof record !== "string") {
+            await pb.collection("years").update(year_data.id, {
+                state: "closed",
+            });
+            toast(
+                "success",
+                "Halbjahresabschluss erfolgreich abgeschlossen. PDF wird generiert.",
+                "Sie werden in 5 Sekunden weitergeleitet.",
+            );
+            setTimeout(() => {
+                window.location.href = `/admin/data/closed?year=${year}&semester=${semester}`;
+            }, 5000);
+        } else {
+            toast(
+                "error",
+                "Fehler beim Abschließen des Halbjahresabschlusses.",
+                "Die Seite wird in 5 Sekunden neu geladen.",
+            );
+            // setTimeout(() => {
+            //     window.location.reload();
+            // }, 5000);
+            return;
+        }
+    }
+
+    function getExamPointsForTeacher(teacher: string) {
+        let points = 0;
+        for (let i = 0; i < teacher_data[teacher].items.length; i++) {
+            const item = teacher_data[teacher].items[i];
+            points +=
+                getExamPointsForSubject(item.subject, item.grade) *
+                item.students;
+        }
+        return points;
+    }
+
+    function getExamPointsForSubject(subject: string, grade: string) {
+        for (let i = 0; i < exam_points.length; i++) {
+            const item = exam_points[i];
+            if (
+                item.subject.toString() === subject.toString() &&
+                item.grade.toString() === grade.toString()
+            ) {
+                return item.points;
+            }
+        }
+        return 0;
+    }
+
+    function distribute(
+        points: number,
+        teacherScores: { [s: string]: number },
+    ) {
+        const res = {} as { [s: string]: number };
+        let d = 0;
+        for (const [teacher, score] of Object.entries(teacherScores)) {
+            d += score;
+            res[teacher] = score;
+        }
+        for (let teacher in res) {
+            res[teacher] *= points / d;
+        }
+        return res;
+    }
+
+    submit.addEventListener("click", onSubmit);
+</script>

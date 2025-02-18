@@ -1,0 +1,117 @@
+---
+import MustAdmin from "../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Halbjahresverwaltung">
+    <MustAdmin />
+
+    <h1>Abgeschlossenes Jahr</h1>
+
+    <table id="hours">
+        <thead>
+            <tr>
+                <th>Lehrer:in</th>
+                <th>Stunden</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <textarea name="out" id="out" readonly></textarea>
+
+    <style scoped>
+        h1,
+        h2,
+        p {
+            text-align: center;
+        }
+
+        textarea {
+            width: calc(100% - 2rem - 8px);
+            padding: 2px;
+            border: 1px solid rgb(var(--border-color));
+            min-height: 10rem;
+            margin: 1rem;
+        }
+    </style>
+
+    <script>
+        import { pb } from "../../../pocketbase";
+        import { toUpperCaseFirst } from "../../../string";
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const year = urlParams.get("year");
+        const semester = urlParams.get("semester");
+
+        if (!year || !semester) {
+            window.location.href = "/admin/data/";
+        }
+
+        const table = document.getElementById("hours") as HTMLTableElement;
+        const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
+
+        const out = document.getElementById("out") as HTMLTextAreaElement;
+
+        async function fillTable() {
+            const sem = await pb
+                .collection("years")
+                .getFirstListItem(`start_year=${year}&&semester=${semester}`);
+            const record = await pb
+                .collection("results")
+                .getFirstListItem(`semester="${sem.id}"`);
+            if (!record) {
+                return;
+            }
+
+            tbody.innerHTML = "";
+            for (const [teacher, hours] of Object.entries(record.data)) {
+                const tr = document.createElement("tr");
+
+                const teacher_td = document.createElement("td");
+                teacher_td.textContent = toUpperCaseFirst(teacher);
+                tr.appendChild(teacher_td);
+
+                const hours_td = document.createElement("td");
+                hours_td.textContent = (hours as number).toFixed(3);
+                tr.appendChild(hours_td);
+
+                tbody.appendChild(tr);
+            }
+        }
+
+        async function genText() {
+            console.log("Generating text");
+            const sem = await pb
+                .collection("years")
+                .getFirstListItem(`start_year=${year}&&semester=${semester}`);
+            const record = await pb
+                .collection("results")
+                .getFirstListItem(`semester="${sem.id}"`);
+            if (!record) {
+                console.log("No record found");
+                return;
+            }
+            console.log(record);
+
+            let text = "";
+            for (const [i, [teacher, hours]] of Object.entries(
+                record.data,
+            ).entries() as any) {
+                const acro = await pb
+                    .collection("acronyms")
+                    .getFirstListItem(`acronym="${teacher}"`, {
+                        expand: "user",
+                    });
+
+                text += `${i + 10000};;;"${acro.expand!.user.short.toUpperCase()}";"500","${hours.toFixed(3)};;;"LK";0.000;0.000;;${hours.toFixed(3)}\n`;
+            }
+
+            console.log(text);
+            out.value = text;
+        }
+
+        fillTable();
+        genText();
+    </script>
+</DefaultLayout>
