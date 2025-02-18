@@ -8,9 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	_ "github.com/Lutz-Pfannenschmidt/stunden-berechner/migrations"
+	_ "anrechnungsstundenberechner/migrations"
 
-	"github.com/Lutz-Pfannenschmidt/stunden-berechner/internal/parser"
+	"anrechnungsstundenberechner/internal/parser"
+
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
