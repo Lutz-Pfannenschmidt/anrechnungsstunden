@@ -22,9 +22,17 @@ RUN cp -r client/dist/* bin/client/dist
 
 FROM alpine:latest
 
-COPY --from=builder /app/bin/** /bin/
+RUN apk update && apk add --no-cache \
+    libreoffice \
+    ttf-dejavu \
+    ttf-liberation \
+    ca-certificates 
+
+RUN mkdir -p /app
+WORKDIR /app
+
+COPY --from=builder /app/bin /app/
 
 EXPOSE 80
 
-# Run
-CMD ["./bin/anrechnungsstundenberechner", "serve", "--http", "0.0.0.0:80"]
+CMD ["./anrechnungsstundenberechner", "serve", "--http", "0.0.0.0:80"]
