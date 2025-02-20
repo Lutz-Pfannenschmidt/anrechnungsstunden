@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine
+FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache nodejs npm
 
@@ -19,6 +19,10 @@ RUN cp temlate.xlsx bin/
 RUN cd client && npm install && npm run build
 RUN mkdir -p bin/client/dist 
 RUN cp -r client/dist/* bin/client/dist
+
+FROM alpine:latest
+
+COPY --from=builder /app/bin/** /bin/
 
 EXPOSE 80
 
