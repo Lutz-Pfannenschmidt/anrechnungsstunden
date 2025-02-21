@@ -62,7 +62,7 @@ type currentExamPoints struct {
 	Points  int    `db:"points" json:"points"`
 }
 
-const templatePath = "temlate.xlsx"
+const templatePath = "template.xlsx"
 
 var cleanup []string = []string{}
 

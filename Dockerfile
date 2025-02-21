@@ -22,11 +22,10 @@ RUN cp -r client/dist/* bin/client/dist
 
 FROM alpine:latest
 
-RUN apk update && apk add --no-cache \
-    libreoffice \
-    ttf-dejavu \
-    ttf-liberation \
-    ca-certificates 
+RUN apk add --no-cache --purge -uU libreoffice \
+    && rm -rf /var/cache/apk/* /tmp/*
+
+COPY ./fonts/* /usr/local/share/fonts/
 
 RUN mkdir -p /app
 WORKDIR /app
