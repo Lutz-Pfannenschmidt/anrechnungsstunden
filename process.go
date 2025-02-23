@@ -7,10 +7,12 @@ import (
 	"strconv"
 
 	"anrechnungsstundenberechner/internal/out"
+	"anrechnungsstundenberechner/internal/parser"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/types"
@@ -197,4 +199,44 @@ func mergePdf(inputPaths []string, outputPath string) error {
 		return fmt.Errorf("error merging PDFs: %w", err)
 	}
 	return nil
+}
+
+func makeParser(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		year := e.Request.URL.Query().Get("year")
+		semester := e.Request.URL.Query().Get("semester")
+
+		semInt, err := strconv.Atoi(semester)
+		if err != nil {
+			return err
+		}
+
+		y := Year{}
+
+		app.DB().
+			Select("*").
+			From("years").
+			AndWhere(dbx.NewExp("start_year = {:year} AND semester = {:semester}", dbx.Params{"year": year, "semester": semester})).
+			One(&y)
+
+		record, err := app.FindRecordById("years", y.ID)
+		if err != nil {
+			return err
+		}
+
+		path := app.DataDir() + "/storage/" + record.BaseFilesPath() + "/" + record.GetString("file")
+
+		data, err := parser.ParseFile(path)
+		if err != nil {
+			return err
+		}
+
+		filtered := map[string]float64{}
+		for k, v := range data {
+			filtered[k] = v[semInt-1]
+		}
+
+		e.JSON(200, filtered)
+		return nil
+	}
 }
