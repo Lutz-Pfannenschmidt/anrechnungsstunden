@@ -15,7 +15,7 @@ RUN mkdir -p bin
 
 RUN go mod download 
 RUN go build -o bin/ .
-RUN cp temlate.xlsx bin/ 
+RUN cp template.xlsx bin/ 
 RUN cd client && npm install && npm run build
 RUN mkdir -p bin/client/dist 
 RUN cp -r client/dist/* bin/client/dist
@@ -34,4 +34,5 @@ COPY --from=builder /app/bin /app/
 
 EXPOSE 80
 
-CMD ["./anrechnungsstundenberechner", "serve", "--http", "0.0.0.0:80"]
+ENTRYPOINT [ "./anrechnungsstundenberechner" ]
+CMD ["serve", "--http", "0.0.0.0:80"]

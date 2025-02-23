@@ -16,3 +16,7 @@ clean:
 publish:
 	docker build -t lutzpfannenschmidt/anrechnungsstundenberechner . 
 	docker push lutzpfannenschmidt/anrechnungsstundenberechner
+
+docker_test:
+	docker build -t test .
+	docker run -p 1337:80 test
