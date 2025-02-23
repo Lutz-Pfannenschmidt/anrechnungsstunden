@@ -15,7 +15,6 @@ RUN mkdir -p bin
 
 RUN go mod download 
 RUN go build -o bin/ .
-RUN cp template.xlsx bin/ 
 RUN cd client && npm install && npm run build
 RUN mkdir -p bin/client/dist 
 RUN cp -r client/dist/* bin/client/dist
@@ -31,6 +30,7 @@ RUN mkdir -p /app
 WORKDIR /app
 
 COPY --from=builder /app/bin /app/
+COPY ./templates/* /app/templates/
 
 EXPOSE 80
 
