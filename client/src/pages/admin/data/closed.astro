@@ -8,6 +8,15 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
     <h1>Abgeschlossenes Jahr</h1>
 
+    <div id="actions">
+        <a class="btn btn-wide btn-success" target="_blank" id="open_pdf"
+            >PDF Öffnen</a
+        >
+        <button class="btn btn-wide btn-success" id="send_pdfs"
+            >PDFs per Email verteilen</button
+        >
+    </div>
+
     <table id="hours">
         <thead>
             <tr>
@@ -28,6 +37,13 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         text-align: center;
     }
 
+    #actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
     textarea {
         width: calc(100% - 2rem - 8px);
         padding: 2px;
@@ -40,6 +56,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 <script>
     import { pb } from "../../../pocketbase";
     import { toUpperCaseFirst } from "../../../string";
+    import { toast } from "../../../toast";
 
     const urlParams = new URLSearchParams(window.location.search);
     const year = urlParams.get("year");
@@ -54,13 +71,40 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
     const out = document.getElementById("out") as HTMLTextAreaElement;
 
+    const open_pdf = document.getElementById("open_pdf") as HTMLAnchorElement;
+    const send_pdfs = document.getElementById("send_pdfs") as HTMLButtonElement;
+
+    const sem = await pb
+        .collection("years")
+        .getFirstListItem(`start_year=${year}&&semester=${semester}`);
+    const record = await pb
+        .collection("results")
+        .getFirstListItem(`semester="${sem.id}"`);
+
+    async function actions() {
+        if (!record) {
+            return;
+        }
+        const token = await pb.files.getToken();
+        const url = pb.files.getURL(record, record.pdf, { token });
+        open_pdf.href = url;
+
+        send_pdfs.addEventListener("click", async (e) => {
+            e.preventDefault();
+            send_pdfs.disabled = true;
+            try {
+                const res = await pb.send("/send_pdfs/", {
+                    year: sem.id,
+                });
+            } catch (e) {
+                toast("error", "Fehler beim Versenden der PDFs");
+            }
+            toast("success", "PDFs wurden versendet");
+            send_pdfs.disabled = false;
+        });
+    }
+
     async function fillTable() {
-        const sem = await pb
-            .collection("years")
-            .getFirstListItem(`start_year=${year}&&semester=${semester}`);
-        const record = await pb
-            .collection("results")
-            .getFirstListItem(`semester="${sem.id}"`);
         if (!record) {
             return;
         }
@@ -82,18 +126,10 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     }
 
     async function genText() {
-        console.log("Generating text");
-        const sem = await pb
-            .collection("years")
-            .getFirstListItem(`start_year=${year}&&semester=${semester}`);
-        const record = await pb
-            .collection("results")
-            .getFirstListItem(`semester="${sem.id}"`);
         if (!record) {
             console.log("No record found");
             return;
         }
-        console.log(record);
 
         let text = "";
         for (const [i, [teacher, hours]] of Object.entries(
@@ -112,6 +148,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         out.value = text;
     }
 
+    actions();
     fillTable();
     genText();
 </script>

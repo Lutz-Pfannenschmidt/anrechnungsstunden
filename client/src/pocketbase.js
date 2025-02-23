@@ -135,16 +135,25 @@ export async function putData(uID, yearID, avgTime) {
 	}
 }
 
-export async function putExamPoints(subject, grade, points) {
-	try {
-		const record = await pb.collection("exam_points").create({
-			subject: subject.toLowerCase(),
-			grade: grade.toUpperCase(),
-			points: points,
-		});
-		return record.id;
-	} catch (error) {
-		return "";
+export async function putExamPoints(subject, grade, points, id) {
+	if (id) {
+		try {
+			const record = await pb
+				.collection("exam_points")
+				.update(id, { subject: subject, grade: grade, points: points });
+			return record.id;
+		} catch (error) {
+			return "";
+		}
+	} else {
+		try {
+			const record = await pb
+				.collection("exam_points")
+				.create({ subject: subject, grade: grade, points: points });
+			return record.id;
+		} catch (error) {
+			return "";
+		}
 	}
 }
 

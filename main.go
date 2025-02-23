@@ -27,7 +27,8 @@ func main() {
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 
-		se.Router.GET("/parse/", makeParser(app)).BindFunc(apis.RequireSuperuserAuth().Func)
+		se.Router.GET("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)
+		se.Router.GET("/send_pdfs/", pdfSender).BindFunc(apis.RequireSuperuserAuth().Func)
 
 		se.Router.GET("/{path...}", apis.Static(os.DirFS("./client/dist/"), false))
 		return se.Next()

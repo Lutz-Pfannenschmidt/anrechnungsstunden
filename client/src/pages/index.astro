@@ -188,7 +188,7 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
                 tasks[0].year,
                 tasks[0].semester,
                 grade,
-                subject.toLowerCase(),
+                subject,
                 students,
             );
             if (id === "") {
@@ -235,7 +235,7 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
 
         for (let i = 0; i < records.length; i++) {
             const record = records[i];
-            subjects.add(toUpperCaseFirst(record.subject));
+            subjects.add(record.subject);
             grades.add(record.grade);
 
             pushMap(allowedGrades, record.subject, record.grade);
@@ -255,22 +255,35 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         } else {
             const records = (existingRecords as ListResult<RecordModel>).items;
 
-            for (let i = 0; i < 3 - records.length; i++) {
-                addRow(tbody, subjects, grades, allowedGrades);
-            }
-
             for (let i = 0; i < records.length; i++) {
                 const record = records[i];
                 addRow(tbody, subjects, grades, allowedGrades, {
-                    subject: toUpperCaseFirst(record.subject),
+                    subject: record.subject,
                     grade: record.grade,
                     students: record.students.toString(),
                 });
                 console.log(record);
             }
 
+            for (let i = 0; i < 3 - records.length; i++) {
+                addRow(tbody, subjects, grades, allowedGrades);
+            }
+
             addPlusRow(tbody, subjects, grades, allowedGrades);
         }
+
+        let classLead = 0;
+        try {
+            const rec = await pb
+                .collection("class_lead")
+                .getFirstListItem(
+                    `teacher="${pb.authStore.record!.id}"&&year=${task.year}&&semester=${task.semester}`,
+                );
+            classLead = rec.percentage;
+        } catch (e) {
+            console.log(e);
+        }
+        classLeadInput.value = classLead.toString();
     }
 
     function addDefaultRows(
@@ -371,7 +384,7 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
             });
 
             const grades = (
-                allowedGrades.get(subjectSelect.value.toLowerCase()) || []
+                allowedGrades.get(subjectSelect.value) || []
             ).slice();
             grades.forEach((grade) => {
                 const option = document.createElement("option");
@@ -412,7 +425,7 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         async function getPointsPerExam() {
             let points_per_exam_value = 0;
             try {
-                let filter = `subject="${subjectSelect.value.toLowerCase()}"&&`;
+                let filter = `subject="${subjectSelect.value}"&&`;
                 const gradeInt = parseInt(gradeSelect.value);
                 if (isNaN(gradeInt)) {
                     filter += `grade="${gradeSelect.value}"`;
@@ -446,12 +459,16 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         row.appendChild(td3);
         row.appendChild(points_per_exam);
         row.appendChild(points);
-        if (tbody.lastElementChild) {
+        calcPoints();
+
+        if (
+            tbody.lastElementChild &&
+            tbody.lastElementChild.classList.contains("plus-row")
+        ) {
             tbody.insertBefore(row, tbody.lastElementChild);
         } else {
             tbody.appendChild(row);
         }
-        calcPoints();
     }
 
     function makeDefaultOption() {

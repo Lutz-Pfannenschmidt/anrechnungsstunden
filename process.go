@@ -12,7 +12,6 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/types"
@@ -170,6 +169,25 @@ func makePdf(e *core.RecordEvent) error {
 			data,
 		)
 
+		collection, err := e.App.FindCollectionByNameOrId("pdfs")
+		if err != nil {
+			return err
+		}
+
+		f, err := filesystem.NewFileFromPath(path)
+		if err != nil {
+			return fmt.Errorf("error creating file from path: %w", err)
+		}
+
+		record := core.NewRecord(collection)
+		record.Set("user", user_data.User)
+		record.Set("semester", y.ID)
+		record.Set("pdf", f)
+
+		err = e.App.Save(record)
+		if err != nil {
+			return err
+		}
 	}
 
 	dirname := os.TempDir() + "/" + out.TempName("/")
@@ -201,42 +219,40 @@ func mergePdf(inputPaths []string, outputPath string) error {
 	return nil
 }
 
-func makeParser(app *pocketbase.PocketBase) func(e *core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		year := e.Request.URL.Query().Get("year")
-		semester := e.Request.URL.Query().Get("semester")
+func parse(e *core.RequestEvent) error {
+	year := e.Request.URL.Query().Get("year")
+	semester := e.Request.URL.Query().Get("semester")
 
-		semInt, err := strconv.Atoi(semester)
-		if err != nil {
-			return err
-		}
-
-		y := Year{}
-
-		app.DB().
-			Select("*").
-			From("years").
-			AndWhere(dbx.NewExp("start_year = {:year} AND semester = {:semester}", dbx.Params{"year": year, "semester": semester})).
-			One(&y)
-
-		record, err := app.FindRecordById("years", y.ID)
-		if err != nil {
-			return err
-		}
-
-		path := app.DataDir() + "/storage/" + record.BaseFilesPath() + "/" + record.GetString("file")
-
-		data, err := parser.ParseFile(path)
-		if err != nil {
-			return err
-		}
-
-		filtered := map[string]float64{}
-		for k, v := range data {
-			filtered[k] = v[semInt-1]
-		}
-
-		e.JSON(200, filtered)
-		return nil
+	semInt, err := strconv.Atoi(semester)
+	if err != nil {
+		return err
 	}
+
+	y := Year{}
+
+	e.App.DB().
+		Select("*").
+		From("years").
+		AndWhere(dbx.NewExp("start_year = {:year} AND semester = {:semester}", dbx.Params{"year": year, "semester": semester})).
+		One(&y)
+
+	record, err := e.App.FindRecordById("years", y.ID)
+	if err != nil {
+		return err
+	}
+
+	path := e.App.DataDir() + "/storage/" + record.BaseFilesPath() + "/" + record.GetString("file")
+
+	data, err := parser.ParseFile(path)
+	if err != nil {
+		return err
+	}
+
+	filtered := map[string]float64{}
+	for k, v := range data {
+		filtered[k] = v[semInt-1]
+	}
+
+	e.JSON(200, filtered)
+	return nil
 }

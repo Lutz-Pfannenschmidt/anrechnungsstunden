@@ -125,6 +125,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             edit_button.style.marginRight = "1rem";
             edit_button.addEventListener("click", async function (e: Event) {
                 e.preventDefault();
+                new_form.setAttribute("data-id", point.id);
                 new_form.subject.value = point.subject;
                 new_form.grade.value = point.grade;
                 new_form.points.value = point.points;
@@ -141,11 +142,13 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     new_form.addEventListener("submit", async function (e) {
         e.preventDefault();
 
+        const row_id = new_form.getAttribute("data-id");
+
         const subject = new_form.subject.value.trim();
         const grade = new_form.grade.value.trim();
         const points = new_form.points.value.trim();
 
-        const id = await putExamPoints(subject, grade, points);
+        const id = await putExamPoints(subject, grade, points, row_id);
         if (id === "") {
             alert("Eintrag konnte nicht gespeichert werden.");
             return;

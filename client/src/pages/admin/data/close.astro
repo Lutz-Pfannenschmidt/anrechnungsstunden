@@ -183,7 +183,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             });
             toast(
                 "success",
-                "Halbjahresabschluss erfolgreich abgeschlossen. PDF wird generiert.",
+                "Halbjahresabschluss erfolgreich abgeschlossen.",
                 "Sie werden in 5 Sekunden weitergeleitet.",
             );
             setTimeout(() => {
@@ -195,9 +195,9 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
                 "Fehler beim Abschließen des Halbjahresabschlusses.",
                 "Die Seite wird in 5 Sekunden neu geladen.",
             );
-            // setTimeout(() => {
-            //     window.location.reload();
-            // }, 5000);
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
             return;
         }
     }
