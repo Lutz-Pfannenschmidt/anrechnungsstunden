@@ -22,124 +22,194 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
             <a href="/admin/login" id="toggleAdmin">Zur Admin Anmeldung</a>
         </form>
 
-        <style scoped>
-            .error-message {
-                min-height: 1.6rem;
+        <div id="otp_popover" popover>
+            <div id="popover_wrapper">
+                <h2>Einmalpasswort</h2>
+                <p>
+                    Ein Einmalpasswort wurde an Ihre E-Mail-Adresse gesendet.
+                    Bitte geben Sie es hier ein.
+                </p>
+
+                <input class="inpt" type="text" id="otp" name="otp" required />
+                <button type="submit" class="btn btn-wide btn-alert"
+                    >Log In</button
+                >
+            </div>
+        </div>
+    </div>
+</DefaultLayout>
+
+<style scoped>
+    .error-message {
+        min-height: 1.6rem;
+    }
+
+    button {
+        margin-bottom: 1rem;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    #toggleAdmin {
+        cursor: pointer;
+        color: #747474;
+        text-decoration: none;
+    }
+
+    #otp_popover {
+        max-width: 100%;
+    }
+
+    #popover_wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 3rem;
+    }
+
+    #popover_wrapper h2 {
+        margin: 0;
+    }
+
+    #popover_wrapper input,
+    #popover_wrapper button {
+        width: 60%;
+    }
+</style>
+
+<script>
+    import type { OTPResponse } from "pocketbase";
+    import { isLoggedIn, loginOTP, pb, requestOTP } from "../pocketbase";
+    import { toast } from "../toast";
+
+    const loginFrm = document.getElementById("login-frm") as HTMLFormElement;
+    const unameInpt = loginFrm.querySelector("#username") as HTMLInputElement;
+    const loginBtn = loginFrm.querySelector("button") as HTMLButtonElement;
+
+    const unameMsg = loginFrm.querySelector("#usernameMsg") as HTMLSpanElement;
+
+    const otpPopover = document.getElementById("otp_popover") as HTMLDivElement;
+    const otpInpt = otpPopover.querySelector("#otp") as HTMLInputElement;
+    const otpBtn = otpPopover.querySelector("button") as HTMLButtonElement;
+
+    let otp_req: OTPResponse | null = null;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const req_id = urlParams.get("id");
+    const otp = urlParams.get("otp");
+
+    if (req_id && otp) {
+        loginOTP(req_id, otp).then((ok) => {
+            if (ok) {
+                window.location.href = "/";
+            } else {
+                otpPopover.hidePopover();
+                toast("error", "Einmalpasswort falsch oder abgelaufen");
             }
+        });
+    }
 
-            button {
-                margin-bottom: 1rem;
-            }
+    function checkValid() {
+        let valid = true;
+        unameMsg.textContent = "";
 
-            .hidden {
-                display: none;
-            }
+        if (unameInpt.value.length < 3) {
+            valid = false;
+            unameMsg.textContent =
+                "Das Kürzel muss mindestens 3 Zeichen lang sein";
+        }
 
-            #toggleAdmin {
-                cursor: pointer;
-                color: #747474;
-                text-decoration: none;
-            }
-        </style>
+        if (unameInpt.value.indexOf(" ") !== -1) {
+            valid = false;
+            unameMsg.textContent =
+                "Das Kürzel darf keine Leerzeichen enthalten";
+        }
 
-        <script>
-            import { isLoggedIn, pb, requestOTP } from "../pocketbase";
+        markValid(valid);
+    }
 
-            const loginFrm = document.getElementById(
-                "login-frm",
-            ) as HTMLFormElement;
-            const unameInpt = loginFrm.querySelector(
-                "#username",
-            ) as HTMLInputElement;
-            const loginBtn = loginFrm.querySelector(
-                "button",
-            ) as HTMLButtonElement;
+    /**
+     * Marks the form as valid or invalid
+     * @param {boolean} isValid - Whether the form is valid
+     */
+    function markValid(isValid: boolean) {
+        if (isValid) {
+            loginBtn.disabled = false;
+            loginBtn.classList.remove("btn-alert");
+            loginBtn.classList.add("btn-success");
+        } else {
+            loginBtn.disabled = true;
+            loginBtn.classList.remove("btn-success");
+            loginBtn.classList.add("btn-alert");
+        }
+    }
 
-            const unameMsg = loginFrm.querySelector(
-                "#usernameMsg",
-            ) as HTMLSpanElement;
+    async function submitForm(e: Event) {
+        e.preventDefault();
+        let uname = unameInpt.value.toLowerCase();
+        if (uname.indexOf("@") === -1) {
+            try {
+                const data = await pb
+                    .collection("emails")
+                    .getFirstListItem(`acronym="${uname}"`, {});
 
-            function checkValid() {
-                let valid = true;
-                unameMsg.textContent = "";
-
-                if (unameInpt.value.length < 3) {
-                    valid = false;
+                if (!data || !data.email) {
                     unameMsg.textContent =
-                        "Das Kürzel muss mindestens 3 Zeichen lang sein";
-                }
-
-                if (unameInpt.value.indexOf(" ") !== -1) {
-                    valid = false;
-                    unameMsg.textContent =
-                        "Das Kürzel darf keine Leerzeichen enthalten";
-                }
-
-                markValid(valid);
-            }
-
-            /**
-             * Marks the form as valid or invalid
-             * @param {boolean} isValid - Whether the form is valid
-             */
-            function markValid(isValid: boolean) {
-                if (isValid) {
-                    loginBtn.disabled = false;
-                    loginBtn.classList.remove("btn-alert");
-                    loginBtn.classList.add("btn-success");
-                } else {
-                    loginBtn.disabled = true;
-                    loginBtn.classList.remove("btn-success");
-                    loginBtn.classList.add("btn-alert");
-                }
-            }
-
-            async function submitForm(e: Event) {
-                e.preventDefault();
-                let uname = unameInpt.value.toLowerCase();
-                if (uname.indexOf("@") === -1) {
-                    try {
-                        const data = await pb
-                            .collection("emails")
-                            .getFirstListItem(`acronym="${uname}"`, {});
-
-                        if (!data || !data.email) {
-                            unameMsg.textContent =
-                                "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein";
-                            markValid(false);
-                            return;
-                        }
-                        uname = data.email;
-                    } catch (e) {
-                        console.error(e);
-                        unameMsg.textContent =
-                            "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein";
-                        markValid(false);
-                        return;
-                    }
-                }
-
-                const id = await requestOTP(uname);
-
-                if (!id) {
-                    unameMsg.textContent = "Kürzel / Email nicht gefunden";
+                        "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein";
                     markValid(false);
                     return;
                 }
-
-                window.location.href = `/otp/?id=${id}`;
+                uname = data.email;
+            } catch (e) {
+                console.error(e);
+                unameMsg.textContent =
+                    "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein";
+                markValid(false);
+                return;
             }
+        }
 
-            function checkLoggedIn() {
-                if (isLoggedIn()) {
-                    window.location.href = "/";
-                }
-            }
+        otp_req = await requestOTP(uname);
 
-            document.addEventListener("DOMContentLoaded", checkValid);
-            document.addEventListener("DOMContentLoaded", checkLoggedIn);
-            unameInpt.addEventListener("input", checkValid);
-            loginFrm.addEventListener("submit", submitForm);
-        </script>
-    </div>
-</DefaultLayout>
+        if (!otp_req) {
+            unameMsg.textContent = "Kürzel / Email nicht gefunden";
+            markValid(false);
+            return;
+        }
+
+        otpPopover.showPopover();
+    }
+
+    function checkLoggedIn() {
+        if (isLoggedIn()) {
+            window.location.href = "/";
+        }
+    }
+
+    async function submitOTP(e: Event) {
+        e.preventDefault();
+        if (!otp_req) {
+            otpPopover.hidePopover();
+            return;
+        }
+
+        let ok = await loginOTP(otp_req.otpId, otpInpt.value);
+        if (ok) {
+            window.location.href = "/";
+        } else {
+            otpPopover.hidePopover();
+            toast("error", "Einmalpasswort falsch oder abgelaufen");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", checkValid);
+    document.addEventListener("DOMContentLoaded", checkLoggedIn);
+    unameInpt.addEventListener("input", checkValid);
+    loginFrm.addEventListener("submit", submitForm);
+
+    otpBtn.addEventListener("click", submitOTP);
+</script>

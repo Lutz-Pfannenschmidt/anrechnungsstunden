@@ -31,4 +31,37 @@ const { title } = Astro.props;
         <Navbar />
         <slot />
     </body>
+
+    <script>
+        import { isLoggedIn, isSuperuser, logout, pb } from "../pocketbase";
+        let collection = isSuperuser() ? "_superusers" : "users";
+
+        async function updateAuth() {
+            await pb.collection(collection).authRefresh();
+            if (!isLoggedIn()) {
+                logout();
+            }
+        }
+
+        if (isLoggedIn()) {
+            pb.collection(collection).subscribe(
+                pb.authStore.record!.id,
+                (e) => {
+                    if (e.action == "delete") {
+                        pb.authStore.clear();
+                    } else {
+                        pb.authStore.save(pb.authStore.token, e.record);
+                    }
+                },
+            );
+            updateAuth();
+
+            // Refresh auth every 5 minutes
+            const authInterval = 5 * 60 * 1000;
+
+            setInterval(updateAuth, authInterval);
+        } else {
+            logout();
+        }
+    </script>
 </html>

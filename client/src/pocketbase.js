@@ -8,18 +8,10 @@ export const pbUrl = dev ? "http://localhost:8090/" : window.location.origin;
 export const pb = new PocketBase(pbUrl);
 pb.autoCancellation(false);
 
-if (isLoggedIn()) {
-	if (isSuperuser()) {
-		pb.collection("_superusers").authRefresh();
-	} else {
-		pb.collection("users").authRefresh();
-	}
-}
-
 export async function requestOTP(username, collection = "users") {
 	try {
 		const o = await pb.collection(collection).requestOTP(username);
-		return o.otpId;
+		return o;
 	} catch (error) {
 		return null;
 	}
@@ -48,6 +40,10 @@ export async function login(username, password, collection = "users") {
  */
 export function logout() {
 	pb.authStore.clear();
+	const path = window.location.pathname;
+	if (!path.startsWith("/login") && !path.startsWith("/admin/login")) {
+		window.location.href = "/login";
+	}
 }
 
 /**

@@ -33,113 +33,100 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
 
             <a href="/login" id="toggleAdmin">Zurück zur Benutzer Anmeldung</a>
         </form>
-
-        <style scoped>
-            .error-message {
-                min-height: 1.6rem;
-            }
-
-            button {
-                margin-bottom: 1rem;
-            }
-
-            .hidden {
-                display: none;
-            }
-
-            #toggleAdmin {
-                cursor: pointer;
-                color: #747474;
-                text-decoration: none;
-            }
-        </style>
-
-        <script>
-            import { isValidEmail } from "../../email";
-            import { isLoggedIn, login } from "../../pocketbase";
-
-            const loginFrm = document.getElementById(
-                "login-frm",
-            ) as HTMLFormElement;
-            const unameInpt = loginFrm.querySelector(
-                "#username",
-            ) as HTMLInputElement;
-            const passInpt = loginFrm.querySelector(
-                "#password",
-            ) as HTMLInputElement;
-            const loginBtn = loginFrm.querySelector(
-                "button",
-            ) as HTMLButtonElement;
-
-            const unameMsg = loginFrm.querySelector(
-                "#usernameMsg",
-            ) as HTMLSpanElement;
-            const passMsg = loginFrm.querySelector(
-                "#passwordMsg",
-            ) as HTMLSpanElement;
-
-            function checkValid() {
-                let valid = true;
-                unameMsg.textContent = "";
-                passMsg.textContent = "";
-
-                if (!isValidEmail(unameInpt.value)) {
-                    valid = false;
-                    unameMsg.textContent =
-                        "Bitte geben Sie eine gültige E-Mail ein";
-                }
-
-                if (passInpt.value.length < 8) {
-                    valid = false;
-                    passMsg.textContent =
-                        "Das Passwort muss mindestens 8 Zeichen lang sein";
-                }
-
-                markValid(valid);
-            }
-
-            /**
-             * Marks the form as valid or invalid
-             * @param {boolean} isValid - Whether the form is valid
-             */
-            function markValid(isValid: boolean) {
-                if (isValid) {
-                    loginBtn.disabled = false;
-                    loginBtn.classList.remove("btn-alert");
-                    loginBtn.classList.add("btn-success");
-                } else {
-                    loginBtn.disabled = true;
-                    loginBtn.classList.remove("btn-success");
-                    loginBtn.classList.add("btn-alert");
-                }
-            }
-
-            async function submitForm(e: Event) {
-                e.preventDefault();
-                let uname = unameInpt.value;
-                let pass = passInpt.value;
-
-                const ok = await login(uname, pass, "_superusers");
-                if (ok) {
-                    window.location.href = "/";
-                } else {
-                    unameMsg.textContent = "Benutzername oder Passwort falsch";
-                    passMsg.textContent = "Benutzername oder Passwort falsch";
-                    markValid(false);
-                }
-            }
-
-            function checkLoggedIn() {
-                if (isLoggedIn()) {
-                    window.location.href = "/";
-                }
-            }
-
-            document.addEventListener("DOMContentLoaded", checkValid);
-            document.addEventListener("DOMContentLoaded", checkLoggedIn);
-            unameInpt.addEventListener("input", checkValid);
-            passInpt.addEventListener("input", checkValid);
-            loginFrm.addEventListener("submit", submitForm);
-        </script>
     </div>
 </DefaultLayout>
+
+<style scoped>
+    .error-message {
+        min-height: 1.6rem;
+    }
+
+    button {
+        margin-bottom: 1rem;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    #toggleAdmin {
+        cursor: pointer;
+        color: #747474;
+        text-decoration: none;
+    }
+</style>
+
+<script>
+    import { isValidEmail } from "../../email";
+    import { isLoggedIn, login } from "../../pocketbase";
+
+    const loginFrm = document.getElementById("login-frm") as HTMLFormElement;
+    const unameInpt = loginFrm.querySelector("#username") as HTMLInputElement;
+    const passInpt = loginFrm.querySelector("#password") as HTMLInputElement;
+    const loginBtn = loginFrm.querySelector("button") as HTMLButtonElement;
+
+    const unameMsg = loginFrm.querySelector("#usernameMsg") as HTMLSpanElement;
+    const passMsg = loginFrm.querySelector("#passwordMsg") as HTMLSpanElement;
+
+    function checkValid() {
+        let valid = true;
+        unameMsg.textContent = "";
+        passMsg.textContent = "";
+
+        if (!isValidEmail(unameInpt.value)) {
+            valid = false;
+            unameMsg.textContent = "Bitte geben Sie eine gültige E-Mail ein";
+        }
+
+        if (passInpt.value.length < 8) {
+            valid = false;
+            passMsg.textContent =
+                "Das Passwort muss mindestens 8 Zeichen lang sein";
+        }
+
+        markValid(valid);
+    }
+
+    /**
+     * Marks the form as valid or invalid
+     * @param {boolean} isValid - Whether the form is valid
+     */
+    function markValid(isValid: boolean) {
+        if (isValid) {
+            loginBtn.disabled = false;
+            loginBtn.classList.remove("btn-alert");
+            loginBtn.classList.add("btn-success");
+        } else {
+            loginBtn.disabled = true;
+            loginBtn.classList.remove("btn-success");
+            loginBtn.classList.add("btn-alert");
+        }
+    }
+
+    async function submitForm(e: Event) {
+        e.preventDefault();
+        let uname = unameInpt.value;
+        let pass = passInpt.value;
+
+        const ok = await login(uname, pass, "_superusers");
+        if (ok) {
+            window.location.href = "/";
+        } else {
+            unameMsg.textContent = "Benutzername oder Passwort falsch";
+            passMsg.textContent = "Benutzername oder Passwort falsch";
+            markValid(false);
+        }
+    }
+
+    function checkLoggedIn() {
+        if (isLoggedIn()) {
+            window.location.href = "/admin/";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", checkValid);
+    document.addEventListener("DOMContentLoaded", checkLoggedIn);
+    unameInpt.addEventListener("input", checkValid);
+    passInpt.addEventListener("input", checkValid);
+    loginFrm.addEventListener("submit", submitForm);
+</script>
