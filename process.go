@@ -65,8 +65,6 @@ type currentExamPoints struct {
 
 const templatePath = "templates/template.xlsx"
 
-var cleanup []string = []string{}
-
 func makePdf(e *core.RecordEvent) error {
 	var r Result
 	data, _ := json.Marshal(e.Record.PublicExport())
@@ -205,7 +203,7 @@ func makePdf(e *core.RecordEvent) error {
 		os.Remove(path)
 	}
 
-	cleanup = append(cleanup, outPath, dirname)
+	os.RemoveAll(dirname)
 
 	return nil
 }

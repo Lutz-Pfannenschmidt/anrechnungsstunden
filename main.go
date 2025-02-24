@@ -43,8 +43,4 @@ func main() {
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
-
-	for _, fname := range cleanup {
-		_ = os.Remove(fname)
-	}
 }
