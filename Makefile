@@ -19,4 +19,7 @@ publish:
 
 docker_test:
 	docker build -t test .
-	docker run -p 1337:80 test
+	make docker_run
+
+docker_run:
+	docker run --volume anrech_data:/app/pb_data -p 1337:80 test

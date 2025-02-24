@@ -155,7 +155,7 @@ func makePdf(e *core.RecordEvent) error {
 			})
 		}
 
-		path := os.TempDir() + "/" + out.TempName(fmt.Sprintf("-%s-%s.pdf", user_data.User, user_data.Id))
+		path := os.TempDir() + "/" + user_data.Name + ".pdf"
 		files = append(files, path)
 		out.RenderTemplate(
 			templatePath,
