@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/mail"
+	"os"
 	"strconv"
 	"strings"
 
@@ -96,8 +98,6 @@ func pdfSender(e *core.RequestEvent) error {
 		yearStr := fmt.Sprintf("%d. Halbjahr %d/%s", year.Semester, year.Year, strconv.Itoa(year.Year + 1)[2:])
 		data := map[string]any{
 			"yearStr": yearStr,
-			"pdfUrl":  e.App.Settings().Meta.AppURL + "/api/files/pdfs/" + row.Id + "/" + row.Pdf,
-			"pdfName": row.Pdf,
 		}
 
 		html, err := registry.LoadFiles("templates/pdf_mail.html").Render(data)
@@ -105,14 +105,22 @@ func pdfSender(e *core.RequestEvent) error {
 			return e.Error(500, "Error rendering template", err)
 		}
 
+		pdfRecord, _ := e.App.FindRecordById("pdfs", row.Id)
+		pdf, err := os.Open(e.App.DataDir() + "/storage/" + pdfRecord.BaseFilesPath() + "/" + row.Pdf)
+		if err != nil {
+			return e.Error(500, "Error opening pdf", err)
+		}
+		defer pdf.Close()
+
 		message := &mailer.Message{
 			From: mail.Address{
 				Address: e.App.Settings().Meta.SenderAddress,
 				Name:    e.App.Settings().Meta.SenderName,
 			},
-			To:      []mail.Address{{Address: u.Email, Name: u.Name}},
-			Subject: "Ihre Anrechnugsstunden",
-			HTML:    html,
+			To:          []mail.Address{{Address: u.Email, Name: u.Name}},
+			Subject:     "Ihre Anrechnugsstunden",
+			HTML:        html,
+			Attachments: map[string]io.Reader{strings.ToLower(u.Name) + ".pdf": pdf},
 		}
 
 		err = e.App.NewMailClient().Send(message)
