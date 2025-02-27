@@ -348,6 +348,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     }
 
     async function confirmUsers(e: Event) {
+        confirmBtn.disabled = true;
         const rows = user_popover
             .querySelector("tbody")!
             .querySelectorAll("tr");
@@ -383,6 +384,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             }
 
             if (!valid) {
+                confirmBtn.disabled = false;
                 return;
             }
 
@@ -439,6 +441,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
                 "Fehler beim Hinzufügen der Daten. Bitte überprüfen Sie die Eingaben.",
             );
             submitBtn.click();
+            confirmBtn.disabled = false;
             return;
         }
     }
