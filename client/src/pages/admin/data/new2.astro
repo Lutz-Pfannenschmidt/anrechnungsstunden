@@ -133,9 +133,8 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { createUser, pb, putData, getUserId } from "../../../pocketbase";
+    import { pb, putData } from "../../../pocketbase";
     import { toast } from "../../../toast";
-    import { toUpperCaseFirst } from "../../../string";
 
     const table = document.getElementById("data") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
@@ -182,7 +181,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     const sortedData = Object.fromEntries(
         Object.entries(data)
             .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-            .map(([key, value]) => [key.toLowerCase(), value]),
+            .map(([key, value]) => [key, value]),
     ) as { [key: string]: number };
 
     for (const key in sortedData) {
@@ -194,7 +193,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         let floatStr = `${parts[0].padStart(2, "0")}.${parts[1].padEnd(3, "0")}`;
 
         tr.innerHTML = `
-            <td>${toUpperCaseFirst(key)}</td>
+            <td>${key}</td>
             <td>${floatStr}</td>
         `;
 
@@ -210,7 +209,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         tbody.appendChild(tr);
     }
 
-    function submit(e: Event) {
+    function submitSelect(e: Event) {
         const rows = tbody.querySelectorAll("tr");
         const selected: string[] = [];
         for (let i = 0; i < rows.length; i++) {
@@ -242,7 +241,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             const tr = document.createElement("tr");
 
             const name = document.createElement("td");
-            name.textContent = toUpperCaseFirst(key);
+            name.textContent = key;
             tr.appendChild(name);
 
             const short = document.createElement("td");
@@ -347,7 +346,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         }
     }
 
-    async function confirmUsers(e: Event) {
+    async function submitCreate(e: Event) {
         confirmBtn.disabled = true;
         const rows = user_popover
             .querySelector("tbody")!
@@ -356,15 +355,18 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const name = row
-                .querySelector("td")!
-                .textContent?.toLowerCase() as string;
-            const short = (
-                row.querySelector("input[name=short]") as HTMLInputElement
-            ).value;
-            let email =
-                (row.querySelector("input[name=email]") as HTMLInputElement)
-                    .value || `${short}@${domainInput.value}`;
+            const name = row.querySelector("td")!.textContent as string;
+
+            const shortInput = row.querySelector(
+                "input[name=short]",
+            ) as HTMLInputElement;
+            const short = shortInput.value;
+
+            let emailInput = row.querySelector(
+                "input[name=email]",
+            ) as HTMLInputElement;
+            let email = emailInput.value || `${short}@${domainInput.value}`;
+
             if (!email.includes("@")) {
                 email = `${email}@${domainInput.value}`;
             }
@@ -388,57 +390,79 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
                 return;
             }
 
-            users[name] = [short, email];
+            users[name] = [short, email, ""];
         }
 
-        let valid = true;
+        let batch = pb.createBatch();
         for (const key in users) {
             const [short, email] = users[key];
-            let id = await getUserId(email);
+            const id = `${email}${short}${key}0123456789012345`
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, "")
+                .substring(0, 15);
+            users[key][2] = id;
+
+            const pwd = `${Math.random().toString(36).slice(-8)}Aa1!`;
+            batch.collection("users").upsert({
+                id: id,
+                email: email,
+                name: key,
+                short: short.toUpperCase(),
+                verified: true,
+                password: pwd,
+                passwordConfirm: pwd,
+            });
+        }
+        try {
+            const result = await batch.send();
+        } catch (err) {
+            toast("error", "Fehler beim Erstellen der Benutzer.");
+            user_popover.hidePopover();
+            return;
+        }
+
+        submitBtn.click();
+        confirmBtn.disabled = false;
+
+        const must_complete: string[] = [];
+
+        for (const key in users) {
+            const [short, email, id] = users[key];
             if (id === "") {
-                id = await createUser(email, key, short);
-                if (id === "") {
-                    toast(
-                        "error",
-                        `Fehler beim Erstellen des Benutzers für ${toUpperCaseFirst(key)}.`,
-                    );
-                    valid = false;
-                    continue;
-                }
+                toast("error", `Benuzter ${key} konnte nicht gefunden werden.`);
+                user_popover.hidePopover();
+                return;
             }
 
             const data_id = await putData(id, yearsRecord.id, sortedData[key]);
             if (data_id === "") {
-                toast(
-                    "error",
-                    `Fehler beim Hinzufügen der Daten für ${toUpperCaseFirst(key)}.`,
-                );
-                valid = false;
+                toast("error", `Fehler beim Hinzufügen der Daten für ${key}.`);
+                user_popover.hidePopover();
+                return;
             }
 
-            const must_complete = yearsRecord.must_complete as string[];
             must_complete.push(id);
-            try {
-                await pb.collection("years").update(yearsRecord.id, {
-                    must_complete: must_complete,
-                    state: "open",
-                });
-
-                setTimeout(() => {
-                    window.location.href = "/admin/data/";
-                }, 1000);
-            } catch (e) {
-                toast(
-                    "error",
-                    `Fehler beim Aktualisieren des Halbjahresabschlusses für ${toUpperCaseFirst(key)}.`,
-                );
-                valid = false;
-            }
         }
-        if (!valid) {
+
+        try {
+            await pb.collection("years").update(yearsRecord.id, {
+                must_complete: must_complete,
+                state: "open",
+            });
+
+            toast(
+                "success",
+                `Halbjahresabschluss für ${yearStr}, ${semStr} erfolgreich aktualisiert.`,
+            );
+            user_popover.hidePopover();
+
+            // setTimeout(() => {
+            //     window.location.href = "/admin/data/";
+            // }, 1000);
+        } catch (e) {
             toast(
                 "error",
-                "Fehler beim Hinzufügen der Daten. Bitte überprüfen Sie die Eingaben.",
+                `Fehler beim Aktualisieren des Halbjahresabschlusses.`,
             );
             submitBtn.click();
             confirmBtn.disabled = false;
@@ -446,6 +470,6 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         }
     }
 
-    submitBtn.addEventListener("click", submit);
-    confirmBtn.addEventListener("click", confirmUsers);
+    submitBtn.addEventListener("click", submitSelect);
+    confirmBtn.addEventListener("click", submitCreate);
 </script>
