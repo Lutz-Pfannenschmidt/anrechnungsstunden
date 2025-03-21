@@ -36,7 +36,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             <input type="text" id="grade" name="grade" required />
 
             <label for="points">Punkte pro Klausur</label>
-            <input type="number" id="points" name="points" required />
+            <input type="text" id="points" name="points" required />
 
             <div class="center">
                 <button type="submit" class="btn btn-success">Speichern</button>
@@ -146,7 +146,9 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
         const subject = new_form.subject.value.trim();
         const grade = new_form.grade.value.trim();
-        const points = new_form.points.value.trim();
+        const points = (new_form.points.value as string)
+            .trim()
+            .replaceAll(",", ".");
 
         const id = await putExamPoints(subject, grade, points, row_id);
         if (id === "") {

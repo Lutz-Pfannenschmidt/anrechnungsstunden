@@ -23,7 +23,7 @@ func main() {
 	app.OnRecordAfterDeleteSuccess("users").BindFunc(onUserDelete)
 	app.OnRecordAfterUpdateSuccess("users").BindFunc(onUserUpdate)
 
-	app.OnRecordValidate("results").BindFunc(makePdf)
+	app.OnRecordAfterCreateSuccess("results").BindFunc(makePdf)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 

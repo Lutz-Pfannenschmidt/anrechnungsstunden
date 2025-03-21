@@ -12,7 +12,9 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
         <p>
             Importiere Benutzer aus einer CSV-Datei. Die Datei muss die Spalten <code
                 >Name</code
-            > und <code>E-Mail</code> enthalten und durch Kommas getrennt sein.
+            > und <code>E-Mail</code> enthalten und durch Kommas getrennt sein. Eine
+            E-Mail Addresse muss in dem Format <code>AAA@B.CC</code> sein, wobei
+            alle Teile auch länger sein können.
         </p>
         <div class="frm-group">
             <label for="csv">CSV-Datei:</label>
@@ -46,6 +48,30 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
     const csvInpt = createFrm.querySelector("#csv") as HTMLInputElement;
 
+    function validateEmail(email: string): boolean {
+        const emailRegex = /^[^\s@]{3,}@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    function generatePassword(): string {
+        const allowed =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        const specialChars = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+
+        const len = 16;
+        let pass = "";
+        for (let i = 0; i < len - 2; i++) {
+            const randIdx = Math.floor(Math.random() * allowed.length);
+            pass += allowed[randIdx];
+        }
+        for (let i = 0; i < 2; i++) {
+            const randIdx = Math.floor(Math.random() * specialChars.length);
+            pass += specialChars[randIdx];
+        }
+
+        return pass;
+    }
+
     function submit(e: SubmitEvent) {
         e.preventDefault();
 
@@ -67,16 +93,28 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                 return;
             }
             const text = e.target.result as string;
-            const lines = text.split("\n");
+            const lines = text.trim().split("\n");
+
             const batch = pb.createBatch();
             for (const line of lines) {
-                if (!line || line.trim() === "") {
-                    continue;
+                const parts = line.split(",");
+
+                if (parts.length < 2) {
+                    alert(
+                        `Zeile hat nicht genügend von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`,
+                    );
+                    return;
                 }
-                const [uname, email] = line.split(",");
+
+                const uname = parts[0].trim();
+                const email = parts[1].trim();
                 const short = email.split("@")[0];
 
-                const pwd = Math.random().toString(36).slice(-8) + "aA1!";
+                if (!validateEmail(email) || !short || short.length < 3) {
+                    alert(`Zeile hat keine valide email addrese: "${email}".`);
+                }
+
+                const pwd = generatePassword() + "aA!";
 
                 batch.collection("users").create({
                     short: short,
@@ -91,11 +129,10 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
             try {
                 await batch.send();
                 alert("Benutzer erfolgreich importiert.");
-                setTimeout(() => {
-                    window.location.href = "/admin/users";
-                }, 1000);
+                window.location.href = "/admin/users";
             } catch (error: any) {
                 alert("Fehler beim Importieren der Benutzer.");
+                window.location.reload();
             }
         };
 
