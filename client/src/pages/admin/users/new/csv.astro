@@ -1,0 +1,112 @@
+---
+import MustAdmin from "../../../../components/MustAdmin.astro";
+import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Benutzerverwaltung">
+    <MustAdmin />
+
+    <h1>Benutzerverwaltung | CSV Import</h1>
+
+    <form class="frm frm-wide" id="create-frm">
+        <p>
+            Importiere Benutzer aus einer CSV-Datei. Die Datei muss die Spalten <code
+                >Name</code
+            > und <code>E-Mail</code> enthalten und durch Kommas getrennt sein.
+        </p>
+        <div class="frm-group">
+            <label for="csv">CSV-Datei:</label>
+            <input class="inpt" type="file" id="csv" name="csv" required />
+            <span id="csvMsg" class="error-message text-alert"></span>
+        </div>
+
+        <button class="btn btn-alert btn-wide" disabled type="submit"
+            >CSV importieren</button
+        >
+    </form>
+</DefaultLayout>
+
+<style>
+    h1,
+    h2,
+    p {
+        text-align: center;
+    }
+
+    form {
+        margin: 0 auto;
+    }
+</style>
+
+<script>
+    import { pb } from "../../../../pocketbase";
+
+    const createFrm = document.getElementById("create-frm") as HTMLFormElement;
+    const submitBtn = createFrm.querySelector("button") as HTMLButtonElement;
+
+    const csvInpt = createFrm.querySelector("#csv") as HTMLInputElement;
+
+    function submit(e: SubmitEvent) {
+        e.preventDefault();
+
+        if (!csvInpt.files) {
+            alert("Keine Datei ausgewählt.");
+            return;
+        }
+
+        const csv = csvInpt.files[0];
+        if (!csv) {
+            alert("Keine Datei ausgewählt.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function (e) {
+            if (!e.target) {
+                alert("Fehler beim Lesen der Datei.");
+                return;
+            }
+            const text = e.target.result as string;
+            const lines = text.split("\n");
+            const batch = pb.createBatch();
+            for (const line of lines) {
+                if (!line || line.trim() === "") {
+                    continue;
+                }
+                const [uname, email] = line.split(",");
+                const short = email.split("@")[0];
+
+                const pwd = Math.random().toString(36).slice(-8) + "aA1!";
+
+                batch.collection("users").create({
+                    short: short,
+                    email: email,
+                    name: uname,
+                    password: pwd,
+                    passwordConfirm: pwd,
+                    verified: true,
+                });
+            }
+
+            try {
+                await batch.send();
+                alert("Benutzer erfolgreich importiert.");
+                setTimeout(() => {
+                    window.location.href = "/admin/users";
+                }, 1000);
+            } catch (error: any) {
+                alert("Fehler beim Importieren der Benutzer.");
+            }
+        };
+
+        reader.readAsText(csv);
+    }
+
+    createFrm.onsubmit = submit;
+
+    csvInpt.onchange = function () {
+        submitBtn.disabled = !csvInpt.files || csvInpt.files.length === 0;
+        submitBtn.classList.toggle("btn-alert", submitBtn.disabled);
+        submitBtn.classList.toggle("btn-success", !submitBtn.disabled);
+    };
+</script>
