@@ -57,8 +57,15 @@ export function isLoggedIn() {
 /**
  * Redirect to the login page if the user is not logged in
  */
-export function mustBeLoggedIn() {
-	if (!isLoggedIn()) {
+export async function mustBeLoggedIn() {
+	if (pb.authStore.isValid && pb.authStore.record) {
+		const auth = await pb
+			.collection(pb.authStore.record.collectionName)
+			.authRefresh();
+		if (!auth || !auth.record) {
+			window.location.href = "/login";
+		}
+	} else {
 		window.location.href = "/login";
 	}
 }

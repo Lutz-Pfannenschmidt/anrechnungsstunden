@@ -46,7 +46,6 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     import { pb } from "../../../pocketbase";
 
     const years = await pb.collection("years").getFullList();
-    console.log(years);
 
     const table = document.getElementById("years") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;

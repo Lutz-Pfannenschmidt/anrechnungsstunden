@@ -1,4 +1,8 @@
 <script>
-    import { mustBeLoggedIn } from "../pocketbase";
+    import { mustBeLoggedIn, pb } from "../pocketbase";
     document.addEventListener("DOMContentLoaded", mustBeLoggedIn);
+
+    setTimeout(() => {
+        mustBeLoggedIn();
+    }, 100000);
 </script>

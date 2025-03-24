@@ -79,8 +79,8 @@ func makePdf(e *core.RecordEvent) error {
 		AndWhere(dbx.NewExp("id={:id}", dbx.Params{"id": r.Semester})).
 		One(&y)
 
-	fmt.Printf("year: %d, semester: %d", y.Year, y.Semester)
-	fmt.Printf("must complete: %v", y.MustComplete)
+	fmt.Printf("year: %d, semester: %d\n", y.Year, y.Semester)
+	fmt.Printf("must complete: %v\n", y.MustComplete)
 
 	yearStr := fmt.Sprintf("%d/%s, %d. Halbjahr", y.Year, strconv.Itoa(y.Year + 1)[2:], y.Semester)
 
@@ -198,6 +198,11 @@ func makePdf(e *core.RecordEvent) error {
 		return fmt.Errorf("error creating file from path: %w", err)
 	}
 	e.Record.Set("pdf", f)
+
+	err = e.App.Save(e.Record)
+	if err != nil {
+		return err
+	}
 
 	for _, path := range files {
 		os.Remove(path)

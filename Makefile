@@ -1,7 +1,8 @@
 buildall:
 	make clean
+	mkdir -p bin/templates
 	go build -o bin/ .
-	cp temlate.xlsx bin/
+	cp -r templates/* bin/templates
 	make buildclient
 
 buildclient:

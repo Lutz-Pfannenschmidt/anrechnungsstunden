@@ -137,14 +137,13 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         ).entries() as any) {
             const acro = await pb
                 .collection("acronyms")
-                .getFirstListItem(`acronym="${teacher}"`, {
+                .getFirstListItem(`acronym="${teacher.toLowerCase()}"`, {
                     expand: "user",
                 });
 
             text += `${i + 10000};;;"${acro.expand!.user.short.toUpperCase()}";"500","${hours.toFixed(3)};;;"LK";0.000;0.000;;${hours.toFixed(3)}\n`;
         }
 
-        console.log(text);
         out.value = text;
     }
 

@@ -110,7 +110,7 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
 
         const ok = await login(uname, pass, "_superusers");
         if (ok) {
-            window.location.href = "/";
+            window.location.href = "/admin/";
         } else {
             unameMsg.textContent = "Benutzername oder Passwort falsch";
             passMsg.textContent = "Benutzername oder Passwort falsch";
