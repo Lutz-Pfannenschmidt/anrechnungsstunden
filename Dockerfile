@@ -14,6 +14,9 @@ RUN rm -rf client/dist
 RUN rm -rf bin
 RUN mkdir -p bin
 
+ARG VERSION
+ENV DOCKER_IMAGE_VERSION=${VERSION}
+
 RUN go mod download 
 RUN go build -o bin/ .
 RUN cd client && npm install && npm run build

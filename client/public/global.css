@@ -22,19 +22,25 @@
 }
 
 body {
-    width: 80vw;
+    width: 100vw;
+    min-height: 100svh;
+    height: 100svh;
+
+    display: flex;
+    flex-direction: column;
+
     margin: 0 auto;
 
     font-family: var(--body-font);
     line-height: 1.6;
 
     background-color: rgba(var(--background-color), 1);
-    border: 1px solid rgba(var(--border-color), 1);
-    border-top: 0;
-    border-bottom: 0;
 
-    min-height: 100vh;
     color: rgba(var(--text-color), 1);
+}
+
+main {
+    flex-grow: 1;
 }
 
 h1,

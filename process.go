@@ -210,7 +210,7 @@ func makePdf(e *core.RecordEvent) error {
 
 	os.RemoveAll(dirname)
 
-	return nil
+	return e.Next()
 }
 
 func mergePdf(inputPaths []string, outputPath string) error {
