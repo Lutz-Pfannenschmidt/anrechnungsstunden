@@ -97,6 +97,9 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
             const batch = pb.createBatch();
             for (const line of lines) {
+                if (line.trim().length === 0 || !line) {
+                    continue;
+                }
                 const parts = line.split(",");
 
                 if (parts.length < 2) {
@@ -122,7 +125,6 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                     name: uname,
                     password: pwd,
                     passwordConfirm: pwd,
-                    verified: true,
                 });
             }
 
