@@ -21,11 +21,12 @@ clean:
 
 docker_build:
 	@echo "Building Docker image..."
-	@docker build --build-arg VERSION=$(VERSION) -t $(IMAGE_NAME):$(VERSION) .
+	@docker build --build-arg VERSION=$(VERSION) -t $(IMAGE_NAME):$(VERSION) -t $(IMAGE_NAME):latest .
 
 docker_push:
 	@echo "Pushing Docker image to Docker Hub..."
 	@docker push $(IMAGE_NAME):$(VERSION)
+	@docker push $(IMAGE_NAME):latest
 
 publish: docker_build docker_push
 
