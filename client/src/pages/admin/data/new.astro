@@ -1,6 +1,6 @@
 ---
-import MustAdmin from "../../../components/MustAdmin.astro";
-import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+import MustAdmin from "@components/MustAdmin.astro";
+import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
@@ -68,7 +68,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb } from "../../../pocketbase";
+    import { pb } from "@src/pocketbase";
 
     const frm = document.getElementById("frm") as HTMLFormElement;
     const submitBtn = frm.querySelector("button") as HTMLButtonElement;

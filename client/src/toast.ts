@@ -1,4 +1,4 @@
-import 'simple-notify/dist/simple-notify.css'
+import 'simple-notify/dist/simple-notify.css';
 import Swal from 'sweetalert2';
 
 export function toast(status: "success" | "error" | "warning" | "info" | "question", title: string, text?: string) {

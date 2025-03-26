@@ -4,11 +4,21 @@
     <div class="loggedin" style="display: none;">
         <a href="/" class="right" id="logout">Abmelden</a>
         <span class="right" id="username"></span>
+        <a class="right" id="impersonate" style="display: none;"
+            >Wieder als Admin anmelden</a
+        >
     </div>
     <div class="loggedout">
         <a href="/login" class="right">Anmelden</a>
     </div>
 </nav>
+
+<style>
+    #impersonate {
+        cursor: pointer;
+        color: rgb(var(--accent-color));
+    }
+</style>
 
 <script>
     import { logout } from "../pocketbase";
@@ -20,11 +30,11 @@
 </script>
 
 <script>
-    import { isLoggedIn, isSuperuser, pb } from "../pocketbase";
-    import { toUpperCaseFirst } from "../string";
+    import { isLoggedIn, isSuperuser, pb, refreshAuth } from "../pocketbase";
     const loggedin = document.querySelector(".loggedin") as HTMLElement;
     const loggedout = document.querySelector(".loggedout") as HTMLElement;
-    const uname = document.getElementById("username") as HTMLAnchorElement;
+    const uname = document.getElementById("username") as HTMLSpanElement;
+    const imp = document.getElementById("impersonate") as HTMLAnchorElement;
 
     const home = document.getElementById("home") as HTMLAnchorElement;
 
@@ -39,14 +49,27 @@
         loggedin.style.display = "block";
         loggedout.style.display = "none";
 
+        const impData = localStorage.getItem("_superuser");
+
         if (isSuperuser()) {
+            localStorage.removeItem("_superuser");
             uname.innerText = pb.authStore.record?.email + " | Admin";
             home.href = "/admin/index.html";
             return;
+        } else if (impData && impData != "") {
+            imp.style.display = "block";
+            imp.addEventListener("click", async () => {
+                const data = JSON.parse(impData);
+                pb.authStore.clear();
+                pb.authStore.save(data.token, data.record);
+                localStorage.removeItem("_superuser");
+                await refreshAuth();
+                window.location.href = "/admin";
+            });
         }
 
         uname.innerText =
-            toUpperCaseFirst(pb.authStore.record?.name) +
+            pb.authStore.record?.name +
             " | " +
             pb.authStore.record?.short.toUpperCase();
     }

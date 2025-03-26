@@ -1,9 +1,10 @@
 <script>
+    import { Collections } from "@src/pocketbase-types";
     import { pb, refreshAuth } from "../pocketbase";
 
     if (await refreshAuth()) {
-        if (pb.authStore.record?.collectionName != "_superusers") {
-            window.location.href = "/admin/login";
+        if (pb.authStore.record?.collectionName != Collections.Superusers) {
+            window.location.href = "/";
         }
     } else {
         window.location.href = "/admin/login";

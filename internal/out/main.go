@@ -15,7 +15,7 @@ type RowData struct {
 	Subject  string
 	Grade    string
 	Students int
-	Points   int
+	Points   float64
 }
 
 func RenderTemplate(templatePath, outputPath, yearStr, name string, weekly_hours float64, lead int, lead_points, hours float64, data []RowData) error {
@@ -28,7 +28,7 @@ func RenderTemplate(templatePath, outputPath, yearStr, name string, weekly_hours
 
 	sheet := f.GetSheetList()[0]
 	f.SetCellStr(sheet, "A2", yearStr)
-	f.SetCellStr(sheet, "A3", "Name: "+toUpperCaseFirst(name))
+	f.SetCellStr(sheet, "A3", "Name: "+name)
 	f.SetCellStr(sheet, "D3", floatToString(weekly_hours))
 
 	if len(data) > 8 {
@@ -39,11 +39,11 @@ func RenderTemplate(templatePath, outputPath, yearStr, name string, weekly_hours
 
 	off := 8
 	for i, row := range data {
-		f.SetCellStr(sheet, "A"+strconv.Itoa(off+i), fmt.Sprintf("%s, %s", toUpperCaseFirst(row.Subject), row.Grade))
+		f.SetCellStr(sheet, "A"+strconv.Itoa(off+i), fmt.Sprintf("%s, %s", row.Subject, row.Grade))
 		f.SetCellStr(sheet, "B"+strconv.Itoa(off+i), intToString(row.Students))
-		f.SetCellStr(sheet, "C"+strconv.Itoa(off+i), intToString(row.Points))
-		f.SetCellStr(sheet, "D"+strconv.Itoa(off+i), intToString(row.Points*row.Students))
-		sum5 += float64(row.Points * row.Students)
+		f.SetCellStr(sheet, "C"+strconv.Itoa(off+i), floatToString(row.Points))
+		f.SetCellStr(sheet, "D"+strconv.Itoa(off+i), floatToString(row.Points*float64(row.Students)))
+		sum5 += row.Points * float64(row.Students)
 	}
 
 	points := float64(lead) / 100.0 * lead_points
@@ -81,13 +81,6 @@ func max(a, b float64) float64 {
 		return a
 	}
 	return b
-}
-
-func toUpperCaseFirst(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func TempName(extension string) string {

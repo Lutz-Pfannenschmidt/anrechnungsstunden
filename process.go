@@ -56,11 +56,11 @@ type TeacherData struct {
 	Subject  string `db:"subject" json:"subject"`
 }
 
-type currentExamPoints struct {
-	Id      string `db:"id" json:"id"`
-	Subject string `db:"subject" json:"subject"`
-	Grade   string `db:"grade" json:"grade"`
-	Points  int    `db:"points" json:"points"`
+type ExamPoints struct {
+	Id      string  `db:"id" json:"id"`
+	Subject string  `db:"subject" json:"subject"`
+	Grade   string  `db:"grade" json:"grade"`
+	Points  float64 `db:"points" json:"points"`
 }
 
 const templatePath = "templates/template.xlsx"
@@ -134,9 +134,9 @@ func makePdf(e *core.RecordEvent) error {
 		data := []out.RowData{}
 
 		for _, td := range teacher_data {
-			p := currentExamPoints{}
+			p := ExamPoints{}
 			err := e.App.DB().NewQuery(`
-					SELECT points FROM current_exam_points
+					SELECT points FROM exam_points
 					WHERE subject={:subject} AND grade={:grade}`).
 				Bind(dbx.Params{"subject": td.Subject, "grade": td.Grade}).
 				One(&p)

@@ -1,6 +1,6 @@
 ---
-import MustAdmin from "../../../components/MustAdmin.astro";
-import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+import MustAdmin from "@components/MustAdmin.astro";
+import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
@@ -133,8 +133,8 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb, putData } from "../../../pocketbase";
-    import { toast } from "../../../toast";
+    import { pb, putData } from "@src/pocketbase";
+    import { toast } from "@src/toast";
 
     const table = document.getElementById("data") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
@@ -223,7 +223,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         }
 
         if (selected.length === 0) {
-            toast("error","Bitte wählen Sie mindestens eine Lehrperson aus.");
+            toast("error", "Bitte wählen Sie mindestens eine Lehrperson aus.");
             return;
         }
 

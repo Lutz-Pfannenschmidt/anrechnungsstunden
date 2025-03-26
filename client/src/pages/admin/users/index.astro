@@ -17,6 +17,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
                 <th>Nachname</th>
                 <th>E-Mail</th>
                 <th></th>
+                <th></th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -49,8 +50,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb } from "../../../pocketbase";
-    import { toUpperCaseFirst } from "../../../string";
+    import { impersonate, pb } from "../../../pocketbase";
 
     const users = await pb.collection("users").getFullList();
 
@@ -61,9 +61,22 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${user.short.toUpperCase()}</td>
-            <td>${toUpperCaseFirst(user.name)}</td>
+            <td>${user.name}</td>
             <td>${user.email}</td>
         `;
+
+        const impersonateRow = document.createElement("td");
+        const impLink = document.createElement("a");
+        impLink.href = "#";
+        impLink.textContent = "Als Benutzer anmelden";
+        impLink.onclick = async () => {
+            const ok = await impersonate(user.id);
+            if (ok) {
+                window.location.href = "/";
+            }
+        };
+        impersonateRow.appendChild(impLink);
+        tr.appendChild(impersonateRow);
 
         const del = document.createElement("td");
         const delLink = document.createElement("a");

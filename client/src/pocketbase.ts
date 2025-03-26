@@ -1,12 +1,31 @@
 import PocketBase, { type OTPResponse } from "pocketbase";
+import { Collections, type ResultsRecord, type TeacherDataResponse, type TypedPocketBase } from "./pocketbase-types";
 
 export const dev = process.env.NODE_ENV === "development";
 
 // The URL of the PocketBase server MUST end with a slash
 export const pbUrl = dev ? "http://localhost:8090/" : window.location.origin;
 
-export const pb = new PocketBase(pbUrl);
+export const pb = new PocketBase(pbUrl) as TypedPocketBase;
 pb.autoCancellation(false);
+
+// Sets the pocketbase instance to use the impersonated user for all requests and returns whether the impersonation was successful
+export async function impersonate(userId: string, duration = 0): Promise<boolean> {
+    try {
+        const client = await pb.collection(Collections.Users).impersonate(userId, duration);
+
+        const token = pb.authStore.token;
+        const record = pb.authStore.record;
+
+        localStorage.setItem("_superuser", JSON.stringify({ token, record }));
+
+        pb.authStore.clear();
+        pb.authStore.save(client.authStore.token, client.authStore.record);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
 
 export async function requestOTP(username: string, collection = "users"): Promise<OTPResponse | null> {
     try {
@@ -171,7 +190,7 @@ export async function getUserId(email: string) {
     }
 }
 
-export async function putData(uID: string, yearID: string, avgTime: string) {
+export async function putData(uID: string, yearID: string, avgTime: number) {
     let existsID = "";
     try {
         const record = await pb
@@ -202,7 +221,7 @@ export async function putData(uID: string, yearID: string, avgTime: string) {
     }
 }
 
-export async function putExamPoints(subject: string, grade: string, points: string, id: string) {
+export async function putExamPoints(subject: string, grade: string, points: number | string, id: string | null): Promise<string | null> {
     if (id) {
         try {
             const record = await pb
@@ -210,7 +229,7 @@ export async function putExamPoints(subject: string, grade: string, points: stri
                 .update(id, { subject: subject, grade: grade, points: points });
             return record.id;
         } catch (error) {
-            return "";
+            return null;
         }
     } else {
         try {
@@ -219,100 +238,72 @@ export async function putExamPoints(subject: string, grade: string, points: stri
                 .create({ subject: subject, grade: grade, points: points });
             return record.id;
         } catch (error) {
-            return "";
+            return null;
         }
     }
 }
 
-export async function putClassLead(teacherID: string, year: string, semester: string, percentage: number) {
+export async function putClassLead(teacherID: string, year: string | number, semester: string | number, points: number): Promise<string | null> {
     let existsID = "";
     try {
         const record = await pb
-            .collection("class_lead")
+            .collection(Collections.ClassLead)
             .getFirstListItem(
-                `teacher="${teacherID}" && year="${year}" && semester="${semester}"`,
+                pb.filter("teacher={:teacherID} && year={:year} && semester={:semester}", {
+                    teacherID,
+                    year, semester
+                })
             );
         existsID = record.id || "";
     } catch (error) {
         existsID = "";
     }
+
     if (existsID) {
         try {
             const record = await pb
-                .collection("class_lead")
-                .update(existsID, { percentage: percentage });
+                .collection(Collections.ClassLead)
+                .update(existsID, { points: points });
             return record.id;
         } catch (error) {
-            return "";
+            return null;
         }
     } else {
         try {
-            const record = await pb.collection("class_lead").create({
-                teacher: teacherID,
-                year: year,
-                semester: semester,
-                percentage: percentage,
-            });
+            const record = await pb
+                .collection(Collections.ClassLead)
+                .create({ teacher: teacherID, year: year, semester: semester, points: points });
             return record.id;
         } catch (error) {
-            return "";
+            return null;
         }
     }
 }
 
-export async function putTeacherData(
-    teacherID: string,
-    year: string,
-    semester: string,
-    grade: string,
-    subject: string,
-    students: number,
-) {
-    let existsID = "";
+export async function getClassLead(teacherID: string, year: string | number, semester: string | number) {
     try {
         const record = await pb
-            .collection("teacher_data")
+            .collection(Collections.ClassLead)
             .getFirstListItem(
-                `teacher="${teacherID}" && year="${year}" && semester="${semester}" && subject="${subject}" && grade="${grade}"`,
+                pb.filter("teacher={:teacherID} && year={:year} && semester={:semester}", {
+                    teacherID,
+                    year, semester
+                })
             );
-        existsID = record.id || "";
+        return record;
     } catch (error) {
-        existsID = "";
-    }
-    if (existsID) {
-        try {
-            const record = await pb
-                .collection("teacher_data")
-                .update(existsID, { students: students });
-            return record.id;
-        } catch (error) {
-            return "";
-        }
-    } else {
-        try {
-            const record = await pb.collection("teacher_data").create({
-                teacher: teacherID,
-                year: year,
-                semester: semester,
-                students: students,
-                grade: grade,
-                subject: subject,
-            });
-            return record.id;
-        } catch (error) {
-            return "";
-        }
+        return null;
     }
 }
 
-export async function getTeacherData(teacherID: string, year: string, semester: string) {
+export async function getTeacherData(teacherID: string, year: string | number, semester: string | number): Promise<TeacherDataResponse<unknown>[]> {
     try {
-        const records = await pb.collection("teacher_data").getList(1, 999, {
-            filter: `teacher="${teacherID}" && year="${year}" && semester="${semester}"`,
+        const records = await pb.collection("teacher_data").getFullList({
+            filter: pb.filter("teacher={:teacherID} && year={:year} && semester={:semester}", { teacherID, year, semester })
         });
         return records;
     } catch (error) {
-        return "";
+        return [];
     }
 }
 
@@ -326,11 +317,11 @@ export async function deleteYears(yearID: string) {
     }
 }
 
-export async function putResults(semester: string, data: { [key: string]: number }, lead_points: number) {
+export async function putResults(semester: string, data: { [key: string]: number }, lead_points: number): Promise<ResultsRecord | null> {
     let existsID = "";
     try {
         const record = await pb
-            .collection("results")
+            .collection(Collections.Results)
             .getFirstListItem(`semester="${semester}"`);
         existsID = record.id || "";
     } catch (error) {
@@ -340,20 +331,20 @@ export async function putResults(semester: string, data: { [key: string]: number
     if (existsID) {
         try {
             const record = await pb
-                .collection("results")
+                .collection(Collections.Results)
                 .update(existsID, { data: data, lead_points: lead_points });
             return record;
         } catch (error) {
-            return "";
+            return null;
         }
     } else {
         try {
             const record = await pb
-                .collection("results")
+                .collection(Collections.Results)
                 .create({ semester: semester, data: data, lead_points: lead_points });
             return record;
         } catch (error) {
-            return "";
+            return null;
         }
     }
 }

@@ -97,28 +97,24 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import type { ListResult, RecordModel } from "pocketbase";
     import {
+        getClassLead,
         getTeacherData,
         pb,
         putClassLead,
-        putTeacherData,
-    } from "../pocketbase";
-    import { toUpperCaseFirst } from "../string";
+    } from "@src/pocketbase";
+    import { Collections } from "@src/pocketbase-types";
+    import { toast } from "@src/toast";
 
     const status = document.getElementById("status") as HTMLParagraphElement;
     const wrapper = document.getElementById("wrapper") as HTMLDivElement;
     const form = document.querySelector("form") as HTMLFormElement;
     const tbody = document.querySelector("tbody") as HTMLTableSectionElement;
-    const classLeadInput = document.getElementById(
-        "class_lead",
-    ) as HTMLInputElement;
-    const submitButton = form.querySelector("button") as HTMLButtonElement;
+    const leadInpt = document.getElementById("class_lead") as HTMLInputElement;
+    const submitBtn = form.querySelector("button") as HTMLButtonElement;
 
-    const nameInput = document.getElementById("name") as HTMLInputElement;
-    const hoursInput = document.getElementById("hours") as HTMLInputElement;
-
-    import { toast } from "../toast";
+    const nameInpt = document.getElementById("name") as HTMLInputElement;
+    const hoursInpt = document.getElementById("hours") as HTMLInputElement;
 
     const tasks = await pb.collection("tasks").getFullList();
     if (tasks.length === 0) {
@@ -126,16 +122,21 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         wrapper.innerHTML = "";
     } else {
         populateForm();
-        submitButton.addEventListener("click", submit);
+        submitBtn.addEventListener("click", submit);
     }
 
     async function submit(e: Event) {
         e.preventDefault();
         const data = new FormData(form);
-        const classLeadPercentage = parseInt(data.get("class_lead") as string);
+
+        const classLeadPercent = parseInt(data.get("class_lead") as string);
 
         const rows = tbody.querySelectorAll("tr");
-        const rowData = [];
+        const rowData: {
+            subject: string;
+            grade: string;
+            students: number;
+        }[] = [];
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -158,8 +159,8 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
             );
 
             if (
-                students < 0 ||
                 isNaN(students) ||
+                students < 0 ||
                 grade === "0" ||
                 subject === "0"
             ) {
@@ -169,44 +170,54 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
             rowData.push({ subject, grade, students });
         }
 
-        const records = (await getTeacherData(
+        const records = await getTeacherData(
             pb.authStore.record!.id,
             tasks[0].year,
             tasks[0].semester,
-        )) as ListResult<RecordModel>;
-        for (let i = 0; i < records.items.length; i++) {
-            const record = records.items[i];
-            await pb
-                .collection("teacher_data")
-                .delete(record.id, { requestKey: null });
+        );
+
+        const batch = pb.createBatch();
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            batch.collection("teacher_data").delete(record.id);
         }
 
-        for (let i = 0; i < rowData.length; i++) {
-            const { subject, grade, students } = rowData[i];
-            const id = await putTeacherData(
-                pb.authStore.record!.id,
-                tasks[0].year,
-                tasks[0].semester,
-                grade,
-                subject,
-                students,
-            );
-            if (id === "") {
-                toast("error", "Fehler beim Speichern der Daten!");
+        if (records.length > 0) {
+            try {
+                await batch.send();
+            } catch (e) {
+                toast("error", "Fehler beim Löschen der alten Daten!");
                 return;
             }
         }
 
-        const id = await putClassLead(
-            pb.authStore.record!.id,
-            tasks[0].year,
-            tasks[0].semester,
-            classLeadPercentage,
-        );
-        if (id === "") {
+        const batch2 = pb.createBatch();
+        for (let i = 0; i < rowData.length; i++) {
+            const { subject, grade, students } = rowData[i];
+            batch2.collection("teacher_data").create({
+                teacher: pb.authStore.record!.id,
+                year: tasks[0].year,
+                semester: tasks[0].semester,
+                grade,
+                subject,
+                students,
+            });
+        }
+
+        try {
+            await batch2.send();
+        } catch (e) {
             toast("error", "Fehler beim Speichern der Daten!");
             return;
         }
+
+        putClassLead(
+            pb.authStore.record!.id,
+            tasks[0].year,
+            tasks[0].semester,
+            classLeadPercent,
+        );
+
         toast(
             "success",
             "Daten erfolgreich gespeichert!",
@@ -215,87 +226,60 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
     }
 
     async function populateForm() {
-        nameInput.value = toUpperCaseFirst(pb.authStore.record?.name);
+        nameInpt.value = pb.authStore.record?.name;
 
         const task = tasks[0];
         const yearStr = `${task.year}/${(task.year + 1).toString().slice(-2)}`;
         status.textContent = `Bitte Daten für das ${task.semester}. Halbjahr ${yearStr} eingeben!`;
 
         const timeStr = `≈ ${task.avg_time.toFixed(3)} Stunden pro Woche`;
-        hoursInput.value = timeStr;
+        hoursInpt.value = timeStr;
 
         const subjects = new Set<string>();
         const grades = new Set<string>();
 
         const allowedGrades = new Map<string, string[]>();
 
-        const records = await pb
-            .collection("current_exam_points")
-            .getFullList();
+        const points = await pb.collection("exam_points").getFullList();
 
-        for (let i = 0; i < records.length; i++) {
-            const record = records[i];
+        for (let i = 0; i < points.length; i++) {
+            const record = points[i];
             subjects.add(record.subject);
             grades.add(record.grade);
 
             pushMap(allowedGrades, record.subject, record.grade);
         }
 
-        const existingRecords = (await getTeacherData(
+        const existingRecords = await getTeacherData(
             pb.authStore.record!.id,
             task.year,
             task.semester,
-        )) as ListResult<RecordModel> | string;
+        );
 
-        if (
-            typeof existingRecords == "string" ||
-            existingRecords.items.length === 0
-        ) {
-            addDefaultRows(tbody, subjects, grades, allowedGrades);
-        } else {
-            const records = (existingRecords as ListResult<RecordModel>).items;
-
-            for (let i = 0; i < records.length; i++) {
-                const record = records[i];
-                addRow(tbody, subjects, grades, allowedGrades, {
-                    subject: record.subject,
-                    grade: record.grade,
-                    students: record.students.toString(),
-                });
-                console.log(record);
-            }
-
-            for (let i = 0; i < 3 - records.length; i++) {
-                addRow(tbody, subjects, grades, allowedGrades);
-            }
-
-            addPlusRow(tbody, subjects, grades, allowedGrades);
+        for (let i = 0; i < existingRecords.length; i++) {
+            const record = existingRecords[i];
+            addRow(tbody, subjects, grades, allowedGrades, {
+                subject: record.subject,
+                grade: record.grade,
+                students: record.students.toString(),
+            });
         }
 
-        let classLead = 0;
-        try {
-            const rec = await pb
-                .collection("class_lead")
-                .getFirstListItem(
-                    `teacher="${pb.authStore.record!.id}"&&year=${task.year}&&semester=${task.semester}`,
-                );
-            classLead = rec.percentage;
-        } catch (e) {
-            console.log(e);
-        }
-        classLeadInput.value = classLead.toString();
-    }
-
-    function addDefaultRows(
-        tbody: HTMLTableSectionElement,
-        subjects: string[] | Set<string>,
-        grades: string[] | Set<string>,
-        allowedGrades: Map<string, string[]>,
-    ) {
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 3 - existingRecords.length; i++) {
             addRow(tbody, subjects, grades, allowedGrades);
         }
+
         addPlusRow(tbody, subjects, grades, allowedGrades);
+
+        const classLead = await getClassLead(
+            pb.authStore.record!.id,
+            task.year,
+            task.semester,
+        );
+
+        if (classLead != null) {
+            leadInpt.value = classLead.percentage.toString();
+        }
     }
 
     function addPlusRow(
@@ -424,17 +408,14 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
 
         async function getPointsPerExam() {
             let points_per_exam_value = 0;
+
             try {
-                let filter = `subject="${subjectSelect.value}"&&`;
-                const gradeInt = parseInt(gradeSelect.value);
-                if (isNaN(gradeInt)) {
-                    filter += `grade="${gradeSelect.value}"`;
-                } else {
-                    filter += `grade=${gradeInt}`;
-                }
-                console.log(filter);
+                let filter = pb.filter("subject={:subject}&&grade={:grade}", {
+                    subject: subjectSelect.value,
+                    grade: gradeSelect.value,
+                });
                 const rec = await pb
-                    .collection("current_exam_points")
+                    .collection(Collections.ExamPoints)
                     .getFirstListItem(filter);
                 points_per_exam_value = rec.points;
             } catch (e) {

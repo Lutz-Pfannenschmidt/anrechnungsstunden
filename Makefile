@@ -39,3 +39,7 @@ docker_test:
 	@echo "Testing Docker container..."
 	@docker build --build-arg VERSION=$(VERSION)_test -t $(IMAGE_NAME):test .
 	@docker run -p 1337:80 $(IMAGE_NAME):test
+
+gentypes:
+	@echo "Generating Pocketbase types for TS..."
+	@npx pocketbase-typegen --db ./pb_data/data.db --out ./client/src/pocketbase-types.ts

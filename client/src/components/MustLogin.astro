@@ -1,8 +1,12 @@
 <script>
-    import { mustBeLoggedIn, pb } from "../pocketbase";
-    document.addEventListener("DOMContentLoaded", mustBeLoggedIn);
+    import { Collections } from "@src/pocketbase-types";
+    import { pb, refreshAuth } from "../pocketbase";
 
-    setTimeout(() => {
-        mustBeLoggedIn();
-    }, 100000);
+    if (await refreshAuth()) {
+        if (pb.authStore.record?.collectionName != Collections.Users) {
+            window.location.href = "/admin";
+        }
+    } else {
+        window.location.href = "/login";
+    }
 </script>

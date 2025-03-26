@@ -1,6 +1,6 @@
 ---
-import MustAdmin from "../../../components/MustAdmin.astro";
-import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+import MustAdmin from "@components/MustAdmin.astro";
+import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Punkteverwaltung">
@@ -71,9 +71,10 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb, putExamPoints } from "../../../pocketbase";
+    import { pb, putExamPoints } from "@src/pocketbase";
+    import { toast } from "@src/toast";
 
-    let points = await pb.collection("current_exam_points").getFullList();
+    let points = await pb.collection("exam_points").getFullList();
 
     const table = document.getElementById("points") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
@@ -86,7 +87,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     const new_form = document.getElementById("new_form") as HTMLFormElement;
 
     pb.collection("exam_points").subscribe("*", async function (e) {
-        points = await pb.collection("current_exam_points").getFullList();
+        points = await pb.collection("exam_points").getFullList();
         fillTable();
     });
 
@@ -104,7 +105,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             tr.appendChild(grade);
 
             const points = document.createElement("td");
-            points.textContent = point.points;
+            points.textContent = point.points.toString();
             tr.appendChild(points);
 
             const actions = document.createElement("td");
@@ -151,8 +152,8 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             .replaceAll(",", ".");
 
         const id = await putExamPoints(subject, grade, points, row_id);
-        if (id === "") {
-            toast("error","Eintrag konnte nicht gespeichert werden.");
+        if (!id) {
+            toast("error", "Eintrag konnte nicht gespeichert werden.");
             return;
         }
 

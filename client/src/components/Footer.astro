@@ -4,11 +4,20 @@ const version = process.env.DOCKER_IMAGE_VERSION || "dev";
 
 <footer>
     Version: {version}
+    <span>von Lutz Pfannenschmidt</span>
 </footer>
 
 <style>
     footer {
-        background-color: #f8f9fa;
+        border-top: 1px solid rgb(var(--border-color));
         padding: 20px;
+    }
+
+    footer span {
+        float: right;
+        color: transparent;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
     }
 </style>

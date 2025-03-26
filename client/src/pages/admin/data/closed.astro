@@ -1,6 +1,6 @@
 ---
-import MustAdmin from "../../../components/MustAdmin.astro";
-import DefaultLayout from "../../../layouts/DefaultLayout.astro";
+import MustAdmin from "@components/MustAdmin.astro";
+import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
@@ -54,9 +54,14 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb } from "../../../pocketbase";
-    import { toUpperCaseFirst } from "../../../string";
-    import { toast } from "../../../toast";
+    import type {
+        AcronymsResponse,
+        ResultsResponse,
+        UsersRecord,
+        UsersResponse,
+    } from "@src/pocketbase-types";
+    import { pb } from "@src/pocketbase";
+    import { toast } from "@src/toast";
 
     const urlParams = new URLSearchParams(window.location.search);
     const year = urlParams.get("year");
@@ -79,10 +84,13 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         .getFirstListItem(`start_year=${year}&&semester=${semester}`);
     const record = await pb
         .collection("results")
-        .getFirstListItem(`semester="${sem.id}"`);
+        .getFirstListItem<
+            ResultsResponse<{ [key: string]: number }>
+        >(`semester="${sem.id}"`);
 
     async function actions() {
         if (!record) {
+            toast("error", "Keine Daten gefunden");
             return;
         }
         const token = await pb.files.getToken();
@@ -105,7 +113,8 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     }
 
     async function fillTable() {
-        if (!record) {
+        if (!record || !record.data) {
+            toast("error", "Keine Daten gefunden");
             return;
         }
 
@@ -114,7 +123,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             const tr = document.createElement("tr");
 
             const teacher_td = document.createElement("td");
-            teacher_td.textContent = toUpperCaseFirst(teacher);
+            teacher_td.textContent = teacher;
             tr.appendChild(teacher_td);
 
             const hours_td = document.createElement("td");
@@ -126,8 +135,8 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
     }
 
     async function genText() {
-        if (!record) {
-            console.log("No record found");
+        if (!record || !record.data) {
+            toast("error", "Keine Daten gefunden");
             return;
         }
 
@@ -135,9 +144,12 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         for (const [i, [teacher, hours]] of Object.entries(
             record.data,
         ).entries() as any) {
+            type Expand = { user: UsersResponse };
             const acro = await pb
                 .collection("acronyms")
-                .getFirstListItem(`acronym="${teacher.toLowerCase()}"`, {
+                .getFirstListItem<
+                    AcronymsResponse<Expand>
+                >(`acronym="${teacher.toLowerCase()}"`, {
                     expand: "user",
                 });
 
