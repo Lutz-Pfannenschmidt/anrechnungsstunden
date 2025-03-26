@@ -152,7 +152,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
         const id = await putExamPoints(subject, grade, points, row_id);
         if (id === "") {
-            alert("Eintrag konnte nicht gespeichert werden.");
+            toast("error","Eintrag konnte nicht gespeichert werden.");
             return;
         }
 

@@ -116,7 +116,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
     async function onSubmit() {
         if (!users_done) {
-            alert(
+            toast("error",
                 "Nicht alle Lehrer:innen haben den Halbjahresabschluss abgegeben.",
             );
             window.location.reload();
@@ -138,7 +138,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             ) || "0",
         );
         if (isNaN(amount) || amount <= 0) {
-            alert("Ungültige Eingabe");
+            toast("error","Ungültige Eingabe");
             window.location.reload();
             return;
         }
@@ -150,7 +150,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             ) || "0",
         );
         if (isNaN(lead_points) || lead_points < 0) {
-            alert("Ungültige Eingabe");
+            toast("error","Ungültige Eingabe");
             window.location.reload();
             return;
         }
@@ -160,7 +160,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         for (let i = 0; i < must_complete.length; i++) {
             const row = must_complete[i];
             if (teacher_data[row.user].items.length === 0) {
-                alert(
+                toast("error",
                     "Nicht alle Lehrer:innen haben den Halbjahresabschluss abgegeben.",
                 );
                 window.location.reload();

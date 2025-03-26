@@ -326,7 +326,7 @@ export async function deleteYears(yearID: string) {
     }
 }
 
-export async function putResults(semester: string, data: string, lead_points: string) {
+export async function putResults(semester: string, data: { [key: string]: number }, lead_points: number) {
     let existsID = "";
     try {
         const record = await pb

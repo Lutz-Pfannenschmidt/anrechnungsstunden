@@ -85,7 +85,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
         const reader = new FileReader();
         reader.onload = async function (e) {
             if (!e.target) {
-                alert("Fehler beim Lesen der Datei.");
+                toast("error", "Fehler beim Lesen der Datei.");
                 return;
             }
             const text = e.target.result as string;
@@ -99,7 +99,8 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                 const parts = line.split(",");
 
                 if (parts.length < 2) {
-                    alert(
+                    toast(
+                        "error",
                         `Zeile hat nicht genügend von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`,
                     );
                     return;
@@ -110,7 +111,10 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                 const short = email.split("@")[0];
 
                 if (!validateEmail(email) || !short || short.length < 3) {
-                    alert(`Zeile hat keine valide email addrese: "${email}".`);
+                    toast(
+                        "error",
+                        `Zeile hat keine valide email addrese: "${email}".`,
+                    );
                 }
 
                 const pwd = generatePassword() + "aA!";
@@ -125,16 +129,16 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
             }
 
             if (!lines || lines.length === 0) {
-                alert("Keine Benutzer zum Importieren gefunden.");
+                toast("error", "Keine Benutzer zum Importieren gefunden.");
                 return;
             }
 
             try {
                 await batch.send();
-                alert("Benutzer erfolgreich importiert.");
+                toast("error", "Benutzer erfolgreich importiert.");
                 window.location.href = "/admin/users";
             } catch (error: any) {
-                alert("Fehler beim Importieren der Benutzer.");
+                toast("error", "Fehler beim Importieren der Benutzer.");
                 window.location.reload();
             }
         };

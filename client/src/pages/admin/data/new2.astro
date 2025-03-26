@@ -223,7 +223,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         }
 
         if (selected.length === 0) {
-            alert("Bitte wählen Sie mindestens eine Lehrperson aus.");
+            toast("error","Bitte wählen Sie mindestens eine Lehrperson aus.");
             return;
         }
 
