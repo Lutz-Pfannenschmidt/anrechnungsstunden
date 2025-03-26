@@ -1,11 +1,11 @@
 <script>
-    import { isLoggedIn, pb } from "../pocketbase";
+    import { pb, refreshAuth } from "../pocketbase";
 
-    if (!isLoggedIn()) {
-        window.location.href = "/admin/login.html";
-    }
-
-    if (pb.authStore.record?.collectionName !== "_superusers") {
-        window.location.href = "/";
+    if (await refreshAuth()) {
+        if (pb.authStore.record?.collectionName != "_superusers") {
+            window.location.href = "/admin/login";
+        }
+    } else {
+        window.location.href = "/admin/login";
     }
 </script>

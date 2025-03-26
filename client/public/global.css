@@ -24,10 +24,10 @@
 body {
     width: 100vw;
     min-height: 100svh;
-    height: 100svh;
 
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
 
     margin: 0 auto;
 

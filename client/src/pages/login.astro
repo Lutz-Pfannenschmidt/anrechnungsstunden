@@ -18,24 +18,8 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
                 <span id="usernameMsg" class="error-message text-alert"></span>
             </div>
             <button type="submit" class="btn btn-wide btn-alert">Log In</button>
-
-            <a href="/admin/login" id="toggleAdmin">Zur Admin Anmeldung</a>
         </form>
-
-        <div id="otp_popover" popover>
-            <div id="popover_wrapper">
-                <h2>Einmalpasswort</h2>
-                <p>
-                    Ein Einmalpasswort wurde an Ihre E-Mail-Adresse gesendet.
-                    Bitte geben Sie es hier ein.
-                </p>
-
-                <input class="inpt" type="text" id="otp" name="otp" required />
-                <button type="submit" class="btn btn-wide btn-alert"
-                    >Log In</button
-                >
-            </div>
-        </div>
+        <a href="/admin/login" id="toggleAdmin">Zur Admin Anmeldung</a>
     </div>
 </DefaultLayout>
 
@@ -57,33 +41,18 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         color: #747474;
         text-decoration: none;
     }
-
-    #otp_popover {
-        max-width: 100%;
-    }
-
-    #popover_wrapper {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        padding: 3rem;
-    }
-
-    #popover_wrapper h2 {
-        margin: 0;
-    }
-
-    #popover_wrapper input,
-    #popover_wrapper button {
-        width: 60%;
-    }
 </style>
 
 <script>
+    import Swal from "sweetalert2";
     import type { OTPResponse } from "pocketbase";
-    import { isLoggedIn, loginOTP, pb, requestOTP } from "../pocketbase";
+    import {
+        loginOTP,
+        logout,
+        pb,
+        redirectLoggedIn,
+        requestOTP,
+    } from "../pocketbase";
     import { toast } from "../toast";
 
     const loginFrm = document.getElementById("login-frm") as HTMLFormElement;
@@ -91,10 +60,6 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
     const loginBtn = loginFrm.querySelector("button") as HTMLButtonElement;
 
     const unameMsg = loginFrm.querySelector("#usernameMsg") as HTMLSpanElement;
-
-    const otpPopover = document.getElementById("otp_popover") as HTMLDivElement;
-    const otpInpt = otpPopover.querySelector("#otp") as HTMLInputElement;
-    const otpBtn = otpPopover.querySelector("button") as HTMLButtonElement;
 
     let otp_req: OTPResponse | null = null;
 
@@ -105,13 +70,24 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
     if (req_id && otp) {
         loginOTP(req_id, otp).then((ok) => {
             if (ok) {
-                window.location.href = "/";
+                redirectLoggedIn();
             } else {
-                otpPopover.hidePopover();
                 toast("error", "Einmalpasswort falsch oder abgelaufen");
             }
         });
     }
+
+    const popup = Swal.mixin({
+        title: "Einmalpasswort",
+        text: "Ein Einmalpasswort wurde an ihre Email gesendet, bitte geben Sie es hier ein",
+        input: "text",
+        inputPlaceholder: "Einmalpasswort",
+        inputValidator: (value) => {
+            if (!value) {
+                return "Einmalpasswort darf nicht leer sein!";
+            }
+        },
+    });
 
     function checkValid() {
         let valid = true;
@@ -175,41 +151,26 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
 
         otp_req = await requestOTP(uname);
 
-        if (!otp_req) {
+        if (!otp_req || !otp_req.otpId) {
             unameMsg.textContent = "Kürzel / Email nicht gefunden";
             markValid(false);
             return;
         }
 
-        otpPopover.showPopover();
-    }
-
-    function checkLoggedIn() {
-        if (isLoggedIn()) {
-            window.location.href = "/";
+        const result = await popup.fire();
+        if (result.isConfirmed) {
+            const ok = await loginOTP(otp_req.otpId, result.value);
+            if (ok) {
+                redirectLoggedIn();
+            } else {
+                popup.close();
+                toast("error", "Einmalpasswort falsch oder abgelaufen");
+            }
         }
     }
 
-    async function submitOTP(e: Event) {
-        e.preventDefault();
-        if (!otp_req) {
-            otpPopover.hidePopover();
-            return;
-        }
-
-        let ok = await loginOTP(otp_req.otpId, otpInpt.value);
-        if (ok) {
-            window.location.href = "/";
-        } else {
-            otpPopover.hidePopover();
-            toast("error", "Einmalpasswort falsch oder abgelaufen");
-        }
-    }
-
+    document.addEventListener("DOMContentLoaded", logout);
     document.addEventListener("DOMContentLoaded", checkValid);
-    document.addEventListener("DOMContentLoaded", checkLoggedIn);
     unameInpt.addEventListener("input", checkValid);
     loginFrm.addEventListener("submit", submitForm);
-
-    otpBtn.addEventListener("click", submitOTP);
 </script>

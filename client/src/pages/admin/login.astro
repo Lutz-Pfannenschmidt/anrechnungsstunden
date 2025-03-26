@@ -45,10 +45,6 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
         margin-bottom: 1rem;
     }
 
-    .hidden {
-        display: none;
-    }
-
     #toggleAdmin {
         cursor: pointer;
         color: #747474;
@@ -58,7 +54,7 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
 
 <script>
     import { isValidEmail } from "../../email";
-    import { isLoggedIn, login } from "../../pocketbase";
+    import { login, logout } from "../../pocketbase";
 
     const loginFrm = document.getElementById("login-frm") as HTMLFormElement;
     const unameInpt = loginFrm.querySelector("#username") as HTMLInputElement;
@@ -118,14 +114,8 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
         }
     }
 
-    function checkLoggedIn() {
-        if (isLoggedIn()) {
-            window.location.href = "/admin/";
-        }
-    }
-
+    document.addEventListener("DOMContentLoaded", logout);
     document.addEventListener("DOMContentLoaded", checkValid);
-    document.addEventListener("DOMContentLoaded", checkLoggedIn);
     unameInpt.addEventListener("input", checkValid);
     passInpt.addEventListener("input", checkValid);
     loginFrm.addEventListener("submit", submitForm);

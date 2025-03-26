@@ -40,30 +40,24 @@ const { title } = Astro.props;
 </html>
 
 <script>
-    import { isLoggedIn, isSuperuser, logout, pb } from "../pocketbase";
-    let collection = isSuperuser() ? "_superusers" : "users";
+    import { logout, pb, refreshAuth } from "../pocketbase";
 
-    async function updateAuth() {
-        await pb.collection(collection).authRefresh();
-        if (!isLoggedIn()) {
-            logout();
-        }
-    }
-
-    if (isLoggedIn()) {
-        pb.collection(collection).subscribe(pb.authStore.record!.id, (e) => {
-            if (e.action == "delete") {
-                pb.authStore.clear();
-            } else {
-                pb.authStore.save(pb.authStore.token, e.record);
-            }
-        });
-        updateAuth();
+    if (refreshAuth() && pb.authStore.record) {
+        pb.collection(pb.authStore.record.collectionName).subscribe(
+            pb.authStore.record!.id,
+            (e) => {
+                if (e.action == "delete") {
+                    pb.authStore.clear();
+                } else {
+                    pb.authStore.save(pb.authStore.token, e.record);
+                }
+            },
+        );
 
         // Refresh auth every 5 minutes
         const authInterval = 5 * 60 * 1000;
 
-        setInterval(updateAuth, authInterval);
+        setInterval(refreshAuth, authInterval);
     } else {
         logout();
     }

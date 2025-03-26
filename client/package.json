@@ -11,7 +11,8 @@
   "dependencies": {
     "astro": "^5.1.10",
     "pocketbase": "^0.25.1",
-    "simple-notify": "^1.0.6"
+    "simple-notify": "^1.0.6",
+    "sweetalert2": "^11.17.2"
   },
   "devDependencies": {
     "sass-embedded": "^1.83.4"

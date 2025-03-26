@@ -42,6 +42,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
 <script>
     import { pb } from "../../../../pocketbase";
+    import { toast } from "../../../../toast";
 
     const createFrm = document.getElementById("create-frm") as HTMLFormElement;
     const submitBtn = createFrm.querySelector("button") as HTMLButtonElement;
@@ -55,18 +56,13 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
     function generatePassword(): string {
         const allowed =
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        const specialChars = "!@#$%^&*()-_=+[]{}|;:,.<>?";
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?";
 
         const len = 16;
         let pass = "";
-        for (let i = 0; i < len - 2; i++) {
+        for (let i = 0; i < len; i++) {
             const randIdx = Math.floor(Math.random() * allowed.length);
             pass += allowed[randIdx];
-        }
-        for (let i = 0; i < 2; i++) {
-            const randIdx = Math.floor(Math.random() * specialChars.length);
-            pass += specialChars[randIdx];
         }
 
         return pass;
@@ -76,13 +72,13 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
         e.preventDefault();
 
         if (!csvInpt.files) {
-            alert("Keine Datei ausgewählt.");
+            toast("error", "Keine Datei ausgewählt.");
             return;
         }
 
         const csv = csvInpt.files[0];
         if (!csv) {
-            alert("Keine Datei ausgewählt.");
+            toast("error", "Keine Datei ausgewählt.");
             return;
         }
 

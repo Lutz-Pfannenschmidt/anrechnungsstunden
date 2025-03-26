@@ -16,16 +16,6 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 )
 
-// reads version embedded by docker
-func version(e *core.RequestEvent) error {
-	ver := os.Getenv("DOCKER_IMAGE_VERSION")
-	if ver == "" {
-		ver = "dev"
-	}
-	e.Response.Write([]byte(ver))
-	return nil
-}
-
 func main() {
 	app := pocketbase.New()
 
@@ -36,8 +26,6 @@ func main() {
 	app.OnRecordAfterCreateSuccess("results").BindFunc(makePdf)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		se.Router.GET("/version", version)
-
 		se.Router.GET("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)
 		se.Router.GET("/send_pdfs/", pdfSender).BindFunc(apis.RequireSuperuserAuth().Func)
 
