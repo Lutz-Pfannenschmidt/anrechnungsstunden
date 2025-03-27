@@ -222,23 +222,19 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             teacher_points[row.expand!.user.name] = Math.max(0, points);
         }
 
+        Swal.fire({
+            title: "PDFs werden generiert...",
+            icon: "info",
+            showConfirmButton: false,
+        });
+
         const record = await putResults(
             year_data.id,
             distribute(amount, teacher_points),
             lead_points,
         );
 
-        if (record !== null) {
-            await pb.collection("years").update(year_data.id, {
-                state: "closed",
-            });
-            toast(
-                "success",
-                "Halbjahresabschluss erfolgreich abgeschlossen.",
-                "Sie werden weitergeleitet.",
-            );
-            window.location.href = `/admin/data/closed?year=${year}&semester=${semester}`;
-        } else {
+        if (record == null) {
             toast(
                 "error",
                 "Fehler beim Abschließen des Halbjahresabschlusses.",
@@ -246,6 +242,16 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             );
             return;
         }
+
+        await pb.collection("years").update(year_data.id, {
+            state: "closed",
+        });
+        toast(
+            "success",
+            "Halbjahresabschluss erfolgreich abgeschlossen.",
+            "Sie werden weitergeleitet.",
+        );
+        window.location.href = `/admin/data/closed?year=${year}&semester=${semester}`;
     }
 
     function getExamPointsForTeacher(teacher: string) {
