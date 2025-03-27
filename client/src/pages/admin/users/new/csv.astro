@@ -41,8 +41,9 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb } from "../../../../pocketbase";
-    import { toast } from "../../../../toast";
+    import { pb } from "@src/pocketbase";
+    import { toast } from "@src/toast";
+    import Swal from "sweetalert2";
 
     const createFrm = document.getElementById("create-frm") as HTMLFormElement;
     const submitBtn = createFrm.querySelector("button") as HTMLButtonElement;
@@ -90,6 +91,12 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
             }
             const text = e.target.result as string;
             const lines = text.trim().split("\n");
+
+            Swal.fire({
+                title: "Benutzer werden erstellt...",
+                icon: "info",
+                showConfirmButton: false,
+            });
 
             const batch = pb.createBatch();
             for (const line of lines) {
