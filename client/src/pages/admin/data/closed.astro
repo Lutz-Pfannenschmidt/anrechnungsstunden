@@ -27,7 +27,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         <tbody></tbody>
     </table>
 
-    <textarea name="out" id="out" readonly></textarea>
+    <div id="wrapper">
+        <textarea name="out" id="out" readonly></textarea>
+    </div>
 </DefaultLayout>
 
 <style scoped>
@@ -44,12 +46,19 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         margin-bottom: 1rem;
     }
 
+    #wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 1rem auto;
+    }
+
     textarea {
-        width: calc(100% - 2rem - 8px);
+        width: 80%;
+        margin: 1rem auto;
         padding: 2px;
         border: 1px solid rgb(var(--border-color));
         min-height: 10rem;
-        margin: 1rem;
     }
 </style>
 
@@ -57,7 +66,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     import type {
         AcronymsResponse,
         ResultsResponse,
-        UsersRecord,
         UsersResponse,
     } from "@src/pocketbase-types";
     import { pb } from "@src/pocketbase";
