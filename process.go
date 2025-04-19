@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -223,12 +224,15 @@ func mergePdf(inputPaths []string, outputPath string) error {
 }
 
 func parse(e *core.RequestEvent) error {
-	year := e.Request.URL.Query().Get("year")
-	semester := e.Request.URL.Query().Get("semester")
+	fmt.Println("\n\nPARSE REQUEST")
 
-	semInt, err := strconv.Atoi(semester)
-	if err != nil {
-		return err
+	reqData := struct {
+		Year      uint   `json:"year"`       // YYYY
+		Semester  uint8  `json:"semester"`   // 1 or 2
+		SplitDate string `json:"split_date"` // DD.MM.YYYY
+	}{}
+	if err := e.BindBody(&reqData); err != nil {
+		return e.BadRequestError("Failed to read request data", err)
 	}
 
 	y := Year{}
@@ -236,7 +240,7 @@ func parse(e *core.RequestEvent) error {
 	e.App.DB().
 		Select("*").
 		From("years").
-		AndWhere(dbx.NewExp("start_year = {:year} AND semester = {:semester}", dbx.Params{"year": year, "semester": semester})).
+		AndWhere(dbx.NewExp("start_year = {:year} AND semester = {:semester}", dbx.Params{"year": reqData.Year, "semester": reqData.Semester})).
 		One(&y)
 
 	record, err := e.App.FindRecordById("years", y.ID)
@@ -246,16 +250,20 @@ func parse(e *core.RequestEvent) error {
 
 	path := e.App.DataDir() + "/storage/" + record.BaseFilesPath() + "/" + record.GetString("file")
 
-	data, err := parser.ParseFile(path)
+	data, err := parser.ParseFile(path, int(reqData.Year), reqData.SplitDate)
 	if err != nil {
+		e.Error(http.StatusInternalServerError, "Failed to parse file", err)
 		return err
 	}
 
 	filtered := map[string]float64{}
-	for k, v := range data {
-		filtered[k] = v[semInt-1]
+	for k, v := range data.Result {
+		filtered[k] = v[reqData.Semester-1]
 	}
 
-	e.JSON(200, filtered)
+	e.JSON(200, map[string]any{
+		"result":          filtered,
+		"name_collisions": data.NameCollisions,
+	})
 	return nil
 }

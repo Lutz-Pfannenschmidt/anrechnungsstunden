@@ -209,6 +209,7 @@ export type YearsRecord = {
 	id: string
 	must_complete?: RecordIdString[]
 	semester: number
+	split: IsoDateString
 	start_year: number
 	state: YearsStateOptions
 	updated?: IsoDateString

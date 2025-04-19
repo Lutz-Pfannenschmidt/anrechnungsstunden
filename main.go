@@ -26,7 +26,7 @@ func main() {
 	app.OnRecordAfterCreateSuccess("results").BindFunc(makePdf)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		se.Router.GET("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)
+		se.Router.POST("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)
 		se.Router.GET("/send_pdfs/", pdfSender).BindFunc(apis.RequireSuperuserAuth().Func)
 
 		se.Router.GET("/{path...}", apis.Static(os.DirFS("./client/dist/"), false))

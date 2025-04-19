@@ -24,6 +24,20 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         </div>
 
         <div class="frm-group">
+            <label for="year">Datum des ersten Montags im neuen Halbjahr:</label
+            >
+            <span>z.B. 12.02.2024</span>
+            <input
+                class="inpt"
+                type="date"
+                id="splitDate"
+                name="splitDate"
+                required
+            />
+            <span id="splitDateMsg" class="error-message text-alert"></span>
+        </div>
+
+        <div class="frm-group">
             <label for="semester">Halbjahr:</label>
             <select name="semester" id="semester" required>
                 <option value="">-- Bitte Auswählen --</option>
@@ -68,7 +82,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb } from "@src/pocketbase";
+    import { formatDateToDDMMYYYY, pb } from "@src/pocketbase";
 
     const frm = document.getElementById("frm") as HTMLFormElement;
     const submitBtn = frm.querySelector("button") as HTMLButtonElement;
@@ -83,12 +97,20 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         "semesterMsg",
     ) as HTMLSpanElement;
 
+    const splitDateInput = document.getElementById(
+        "splitDate",
+    ) as HTMLInputElement;
+    const splitDateMsg = document.getElementById(
+        "splitDateMsg",
+    ) as HTMLSpanElement;
+
     const fileInput = document.getElementById("fileInput") as HTMLInputElement;
     const fileMsg = document.getElementById("fileMsg") as HTMLSpanElement;
 
     function validate() {
         let valid = true;
         yearMsg.innerText = "";
+        splitDateMsg.innerText = "";
         semesterMsg.innerText = "";
         fileMsg.innerText = "";
 
@@ -96,6 +118,25 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         if (isNaN(year) || year < 2000) {
             yearMsg.innerText = "Bitte geben Sie ein gültiges Jahr ein.";
             valid = false;
+        }
+
+        const splitDate = new Date(splitDateInput.value);
+        if (isNaN(splitDate.getTime())) {
+            splitDateMsg.innerText = "Bitte geben Sie ein gültiges Datum ein.";
+            valid = false;
+        } else {
+            if (
+                splitDate.getFullYear() < year ||
+                splitDate.getFullYear() > year + 1
+            ) {
+                splitDateMsg.innerText =
+                    "Das Datum muss innerhalb des Schuljahres liegen.";
+                valid = false;
+            }
+            if (splitDate.getDay() !== 1) {
+                splitDateMsg.innerText = "Das Datum muss ein Montag sein.";
+                valid = false;
+            }
         }
 
         const semester = parseInt(semesterInput.value);
@@ -126,6 +167,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         if (!validate()) return;
 
         const year = parseInt(yearInput.value);
+        const splitDate = new Date(splitDateInput.value);
         const semester = parseInt(semesterInput.value);
         const file = (fileInput.files as FileList)[0];
 
@@ -134,11 +176,12 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             semester: semester,
             file: file,
             state: "uploaded",
+            split: splitDate,
         };
 
         try {
             await pb.collection("years").create(data);
-            window.location.href = `/admin/data/new2/?year=${year}&semester=${semester}`;
+            window.location.href = `/admin/data/new2/?year=${year}&semester=${semester}&splitDate=${formatDateToDDMMYYYY(splitDate)}`;
         } catch (e: any) {
             console.error(e);
             const yearStr = `${year}/${(year + 1).toString().substring(2)}`;

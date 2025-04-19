@@ -133,8 +133,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 </style>
 
 <script>
-    import { pb, putData } from "@src/pocketbase";
+    import { formatDateToDDMMYYYY, pb, putData } from "@src/pocketbase";
     import { toast } from "@src/toast";
+    import Swal from "sweetalert2";
 
     const table = document.getElementById("data") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
@@ -156,8 +157,15 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     const urlParams = new URLSearchParams(window.location.search);
     const year = parseInt(urlParams.get("year") || "");
     const semester = parseInt(urlParams.get("semester") || "");
+    const split_date = new Date(urlParams.get("split_date") || "");
 
-    if (isNaN(year) || isNaN(semester) || semester < 1 || semester > 2) {
+    if (
+        isNaN(year) ||
+        isNaN(semester) ||
+        semester < 1 ||
+        semester > 2 ||
+        !split_date
+    ) {
         window.location.href = "/admin/data/";
     }
 
@@ -174,15 +182,53 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         window.location.href = "/admin/data/";
     }
 
-    const data = await pb.send("/parse/", {
-        query: { year: year, semester: semester },
-    });
+    type ParseResult = {
+        result: { [key: string]: number };
+        name_collisions: { [key: string]: string[] };
+    };
+
+    let data: ParseResult = {
+        result: {},
+        name_collisions: {},
+    };
+    try {
+        const query = {
+            year: year,
+            semester: semester,
+            split_date: formatDateToDDMMYYYY(split_date),
+        };
+
+        data = await pb.send("/parse/", {
+            body: query,
+            method: "POST",
+        });
+    } catch (e) {
+        console.error(e);
+        toast(
+            "error",
+            `Fehler beim Abrufen der Daten. Bitte versuchen Sie es später erneut.`,
+        );
+    }
+    console.log(data);
+
+    if (Object.keys(data.name_collisions).length > 0) {
+        let collision_text = "";
+        for (const key in data.name_collisions) {
+            collision_text += `${key}: ${data.name_collisions[key].join(", ")}\n`;
+        }
+        Swal.fire({
+            title: "Kollidierende Kürzel",
+            text: `Die folgenden Kürzel sind bereits vergeben:\n${collision_text}`,
+            icon: "warning",
+            confirmButtonText: "OK",
+        });
+    }
 
     const sortedData = Object.fromEntries(
-        Object.entries(data)
+        Object.entries(data.result)
             .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
             .map(([key, value]) => [key, value]),
-    ) as { [key: string]: number };
+    );
 
     for (const key in sortedData) {
         const tr = document.createElement("tr");

@@ -76,7 +76,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 case "uploaded":
                     state.innerHTML = `
                         Wartet auf
-                        <a href="/admin/data/new2/?year=${year.start_year}&semester=${year.semester}" class="text-warning bold">nächsten Schritt</a>`;
+                        <a href="/admin/data/new2/?year=${year.start_year}&semester=${year.semester}&split_date=${year.split}" class="text-warning bold">nächsten Schritt</a>`;
                     state.classList.add("text-warning");
                     break;
 
