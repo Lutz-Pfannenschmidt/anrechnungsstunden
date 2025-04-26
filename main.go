@@ -24,6 +24,7 @@ func main() {
 	app.OnRecordAfterUpdateSuccess("users").BindFunc(onUserUpdate)
 
 	app.OnRecordAfterCreateSuccess("results").BindFunc(makePdf)
+	app.OnRecordAfterDeleteSuccess("results").BindFunc(onResultsDelete)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.POST("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)

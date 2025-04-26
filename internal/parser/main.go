@@ -93,6 +93,7 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 
 			c, err := strconv.ParseFloat(values[4], 64)
 			if err != nil {
+				fmt.Println("Error parsing value:", values[4])
 				return nil, err
 			}
 
@@ -101,6 +102,7 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 				var from, to int
 				_, err = fmt.Sscanf(values[0], "%d-%d", &from, &to)
 				if err != nil {
+					fmt.Println("Error parsing weeks:", values[0])
 					return nil, err
 				}
 				weeks = to - from + 1
@@ -108,11 +110,13 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 
 			var fromMonth, toMonth time.Month
 			var fromDay, toDay int
-			n, err := fmt.Sscanf(values[2], "%d.%d.-%d.%d.", &fromDay, &fromMonth, &toDay, &toMonth)
+			n, err := fmt.Sscanf(values[1], "%d.%d.-%d.%d.", &fromDay, &fromMonth, &toDay, &toMonth)
 			if err != nil {
+				fmt.Println("Error parsing date_:", values[1])
 				return nil, err
 			} else if n != 4 {
-				return nil, fmt.Errorf("invalid date format: %s", values[2])
+				fmt.Println("Error parsing date:", values[1])
+				return nil, fmt.Errorf("invalid date format: %s", values[1])
 			}
 
 			sem := 0
@@ -125,6 +129,13 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 			}
 		}
 
+	}
+
+	for key := range res.Result {
+		if _, exists := res.Result[key+"_NAME_COLLISION_1"]; exists {
+			res.Result[key+"_NAME_COLLISION_0"] = res.Result[key]
+			delete(res.Result, key)
+		}
 	}
 
 	return
@@ -167,8 +178,14 @@ func uniqueName(name string, res *ParseResult) string {
 	i := 1
 	for {
 		if _, exists := res.Result[newName]; exists {
-			res.NameCollisions[name] = append(res.NameCollisions[name], newName)
-			newName = fmt.Sprintf("%s_%d", name, i)
+			if len(res.NameCollisions[name]) == 0 {
+				res.NameCollisions[name] = []string{name + "_NAME_COLLISION_0"}
+			}
+			newName = fmt.Sprintf("%s_NAME_COLLISION_%d", name, i)
+			if _, exists := res.Result[newName]; !exists {
+				res.NameCollisions[name] = append(res.NameCollisions[name], newName)
+				break
+			}
 			i++
 		} else {
 			break

@@ -226,13 +226,13 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
     }
 
     async function populateForm() {
-        nameInpt.value = pb.authStore.record?.name;
+        nameInpt.value = `${pb.authStore.record?.name.split("_NAME_COLLISION_")[0]} (${pb.authStore.record?.short})`;
 
         const task = tasks[0];
         const yearStr = `${task.year}/${(task.year + 1).toString().slice(-2)}`;
         status.textContent = `Bitte Daten für das ${task.semester}. Halbjahr ${yearStr} eingeben!`;
 
-        const timeStr = `≈ ${task.avg_time.toFixed(3)} Stunden pro Woche`;
+        const timeStr = `⌀ ${task.avg_time.toFixed(3)} Stunden pro Woche`;
         hoursInpt.value = timeStr;
 
         const subjects = new Set<string>();

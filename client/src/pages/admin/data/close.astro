@@ -97,10 +97,19 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     for (let i = 0; i < tasks.length; i++) {
         const row = tasks[i];
 
+        const name = row.expand!.user.name;
+        const short = row.expand!.user.short;
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${row.expand!.user.name}</td>
         `;
+
+        if (name.includes("_NAME_COLLISION_")) {
+            tr.innerHTML = `
+                <td>${name.split("_NAME_COLLISION_")[0]} (${short})</td>
+            `;
+        }
 
         const statusRow = document.createElement("td");
         statusRow.textContent = "Wird geladen...";

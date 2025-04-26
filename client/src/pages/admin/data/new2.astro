@@ -157,7 +157,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     const urlParams = new URLSearchParams(window.location.search);
     const year = parseInt(urlParams.get("year") || "");
     const semester = parseInt(urlParams.get("semester") || "");
-    const split_date = new Date(urlParams.get("split_date") || "");
+    const split_date = urlParams.get("split_date") || "";
 
     if (
         isNaN(year) ||
@@ -195,12 +195,12 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         const query = {
             year: year,
             semester: semester,
-            split_date: formatDateToDDMMYYYY(split_date),
+            split_date: split_date,
         };
 
         data = await pb.send("/parse/", {
-            body: query,
             method: "POST",
+            body: query,
         });
     } catch (e) {
         console.error(e);
@@ -239,10 +239,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         let floatStr = `${parts[0].padStart(2, "0")}.${parts[1].padEnd(3, "0")}`;
 
         tr.innerHTML = `
-            <td>${key}</td>
+            <td>${key.split("_NAME_COLLISION_")[0]}</td>
             <td>${floatStr}</td>
         `;
-
         tr.addEventListener("mousedown", () => {
             if (user_popover.matches(":popover-open")) {
                 return;
@@ -285,9 +284,16 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
         for (const key of selected) {
             const tr = document.createElement("tr");
+            tr.setAttribute("name", key);
 
             const name = document.createElement("td");
             name.textContent = key;
+            if (key.includes("_NAME_COLLISION_")) {
+                name.textContent =
+                    key.split("_NAME_COLLISION_")[0] +
+                    ` (~${sortedData[key].toFixed(2)}h)`;
+                name.style.color = "rgb(var(--warning-color))";
+            }
             tr.appendChild(name);
 
             const short = document.createElement("td");
@@ -336,6 +342,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             tr.appendChild(email);
 
             async function tryExists(name: string) {
+                if (name.includes("_NAME_COLLISION_")) {
+                    return;
+                }
                 const record = await pb
                     .collection("emails")
                     .getFirstListItem(`acronym="${name.toLowerCase()}"`, {});
@@ -401,7 +410,12 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const name = row.querySelector("td")!.textContent as string;
+            const name = row.getAttribute("name");
+
+            if (name == null) {
+                confirmBtn.disabled = false;
+                return;
+            }
 
             const shortInput = row.querySelector(
                 "input[name=short]",

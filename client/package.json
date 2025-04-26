@@ -1,21 +1,23 @@
 {
-  "name": "",
-  "type": "module",
-  "version": "0.0.1",
-  "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro"
-  },
-  "dependencies": {
-    "astro": "^5.1.10",
-    "pocketbase": "^0.25.1",
-    "read-excel-file": "^5.8.7",
-    "simple-notify": "^1.0.6",
-    "sweetalert2": "^11.17.2"
-  },
-  "devDependencies": {
-    "sass-embedded": "^1.83.4"
-  }
+    "name": "",
+    "type": "module",
+    "version": "0.0.1",
+    "scripts": {
+        "dev": "astro dev",
+        "build": "astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "typegen": "npx pocketbase-typegen --db ../pb_data/data.db --out ./src/pocketbase-types.ts"
+    },
+    "dependencies": {
+        "astro": "^5.1.10",
+        "date-fns": "^4.1.0",
+        "pocketbase": "^0.25.1",
+        "read-excel-file": "^5.8.7",
+        "simple-notify": "^1.0.6",
+        "sweetalert2": "^11.6.13"
+    },
+    "devDependencies": {
+        "sass-embedded": "^1.83.4"
+    }
 }

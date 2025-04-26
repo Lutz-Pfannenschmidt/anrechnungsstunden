@@ -24,12 +24,11 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         </div>
 
         <div class="frm-group">
-            <label for="year">Datum des ersten Montags im neuen Halbjahr:</label
-            >
-            <span>z.B. 12.02.2024</span>
+            <label for="year">Datum des ersten Montags im 2. Halbjahr:</label>
+            <span>z.B. 09.02.2026</span>
             <input
                 class="inpt"
-                type="date"
+                type="text"
                 id="splitDate"
                 name="splitDate"
                 required
@@ -82,6 +81,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 </style>
 
 <script>
+    import { parse } from "date-fns";
     import { formatDateToDDMMYYYY, pb } from "@src/pocketbase";
 
     const frm = document.getElementById("frm") as HTMLFormElement;
@@ -120,7 +120,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             valid = false;
         }
 
-        const splitDate = new Date(splitDateInput.value);
+        const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
         if (isNaN(splitDate.getTime())) {
             splitDateMsg.innerText = "Bitte geben Sie ein gültiges Datum ein.";
             valid = false;
@@ -167,7 +167,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         if (!validate()) return;
 
         const year = parseInt(yearInput.value);
-        const splitDate = new Date(splitDateInput.value);
+        const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
         const semester = parseInt(semesterInput.value);
         const file = (fileInput.files as FileList)[0];
 
@@ -181,7 +181,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
         try {
             await pb.collection("years").create(data);
-            window.location.href = `/admin/data/new2/?year=${year}&semester=${semester}&splitDate=${formatDateToDDMMYYYY(splitDate)}`;
+            window.location.href = `/admin/data/new2/?year=${year}&semester=${semester}&split_date=${formatDateToDDMMYYYY(splitDate)}`;
         } catch (e: any) {
             console.error(e);
             const yearStr = `${year}/${(year + 1).toString().substring(2)}`;
@@ -193,6 +193,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     document.addEventListener("DOMContentLoaded", setupYear);
     document.addEventListener("DOMContentLoaded", validate);
     yearInput.addEventListener("input", validate);
+    splitDateInput.addEventListener("input", validate);
     semesterInput.addEventListener("input", validate);
     fileInput.addEventListener("input", validate);
     frm.addEventListener("submit", submit);

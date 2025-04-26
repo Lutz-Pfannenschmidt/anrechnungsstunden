@@ -71,12 +71,19 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const changeDate = new Date(year.updated);
             const changeStr = changeDate.toLocaleString("de-DE");
 
+            const splitDate = new Date(year.split);
+            const splitStr = splitDate.toLocaleString("de-DE", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            });
+
             let state = document.createElement("span");
             switch (year.state) {
                 case "uploaded":
                     state.innerHTML = `
                         Wartet auf
-                        <a href="/admin/data/new2/?year=${year.start_year}&semester=${year.semester}&split_date=${year.split}" class="text-warning bold">nächsten Schritt</a>`;
+                        <a href="/admin/data/new2/?year=${year.start_year}&semester=${year.semester}&split_date=${splitStr}" class="text-warning bold">nächsten Schritt</a>`;
                     state.classList.add("text-warning");
                     break;
 

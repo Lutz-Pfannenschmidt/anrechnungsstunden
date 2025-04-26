@@ -69,7 +69,7 @@
         }
 
         uname.innerText =
-            pb.authStore.record?.name +
+            pb.authStore.record?.name.split("_NAME_COLLISION_")[0] +
             " | " +
             pb.authStore.record?.short.toUpperCase();
     }

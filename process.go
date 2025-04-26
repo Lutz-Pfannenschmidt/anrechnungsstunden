@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"anrechnungsstundenberechner/internal/out"
 	"anrechnungsstundenberechner/internal/parser"
@@ -154,13 +155,18 @@ func makePdf(e *core.RecordEvent) error {
 			})
 		}
 
+		name := user_data.Name
+		if strings.Contains(name, "_NAME_COLLISION_") {
+			name = strings.Split(name, "_NAME_COLLISION_")[0] + "(" + user_data.Short + ")"
+		}
+
 		path := os.TempDir() + "/" + user_data.Name + ".pdf"
 		files = append(files, path)
 		out.RenderTemplate(
 			templatePath,
 			path,
 			yearStr,
-			user_data.Name,
+			name,
 			user_data.AvgTime,
 			int(user_data.ClassLeadPercentage),
 			r.LeadPoints,
