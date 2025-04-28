@@ -1,0 +1,41 @@
+---
+import Home from "astro-heroicons/outline/Home.astro";
+---
+
+<div id="autocrumbs" class="breadcrumbs text-sm">
+    <ul>
+        <li><a href="/" class="link"><Home class={"w-4"} />Home</a></li>
+    </ul>
+</div>
+
+<script>
+    const crumbs = document.querySelector("#autocrumbs ul") as HTMLUListElement;
+    const path = window.location.pathname.split("/").filter((x) => x);
+
+    const names = {
+        Data: "Halbjahresverwaltung",
+        Points: "Punkteverwaltung",
+        Users: "Benutzerverwaltung",
+    };
+
+    let isEnd = false;
+    path.forEach((p, i) => {
+        if (isEnd) {
+            return;
+        }
+        const crumb = document.createElement("li");
+        const link = document.createElement("a");
+        link.classList.toggle("link", i !== path.length - 1);
+        link.href = "/" + path.slice(0, i + 1).join("/");
+        link.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+        if (link.textContent in names) {
+            if (link.textContent in names) {
+                link.textContent =
+                    names[link.textContent as keyof typeof names];
+            }
+            isEnd = true;
+        }
+        crumb.appendChild(link);
+        crumbs.appendChild(crumb);
+    });
+</script>

@@ -1,160 +1,139 @@
 ---
-import MustAdmin from "@components/MustAdmin.astro";
 import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
-    <MustAdmin />
+    <div class="flex flex-col items-center justify-center w-full h-full">
+        <h1 class="text-4xl font-bold text-center mb-8">
+            Neuer Halbjahresabschluss
+        </h1>
 
-    <h1>Neuer Halbjahresabschluss</h1>
+        <form class="form flex flex-col gap-8" id="frm">
+            <label class="floating-label">
+                <span>Jahr in dem das Schuljahr angefangen hat </span>
 
-    <form class="frm frm-wide" id="frm">
-        <div class="frm-group">
-            <label for="year">Jahr in dem das Schuljahr angefangen hat:</label>
-            <span>z.B. 2025 für das Schuljahr 2025/26</span>
-            <input
-                class="inpt"
-                type="number"
-                id="year"
-                name="year"
-                min="2000"
-                required
-            />
-            <span id="yearMsg" class="error-message text-alert"></span>
-        </div>
+                <input
+                    id="year"
+                    type="number"
+                    class="input input-xl w-lg validator"
+                    required
+                    placeholder="Jahr in dem das Schuljahr angefangen hat"
+                    min="2000"
+                    title="Das Jahr muss eine Zahl größer als 2000 sein"
+                />
+                <p class="label">z.B. 2025 für das Schuljahr 2025/26</p>
+                <p class="validator-hint">
+                    Das Jahr muss eine Zahl größer als 2000 sein
+                </p>
+            </label>
 
-        <div class="frm-group">
-            <label for="year">Datum des ersten Montags im 2. Halbjahr:</label>
-            <span>z.B. 09.02.2026</span>
-            <input
-                class="inpt"
-                type="text"
-                id="splitDate"
-                name="splitDate"
-                required
-            />
-            <span id="splitDateMsg" class="error-message text-alert"></span>
-        </div>
+            <label class="floating-label">
+                <span>Datum des ersten <b>Montags</b> im 2. Halbjahr</span>
 
-        <div class="frm-group">
-            <label for="semester">Halbjahr:</label>
-            <select name="semester" id="semester" required>
-                <option value="">-- Bitte Auswählen --</option>
-                <option value="1">1. Halbjahr</option>
-                <option value="2">2. Halbjahr</option>
-            </select>
-            <span id="semesterMsg" class="error-message text-alert"></span>
-        </div>
+                <input
+                    id="splitDate"
+                    type="text"
+                    class="input input-xl w-lg"
+                    required
+                    placeholder="Datum des ersten Montags im 2. Halbjahr"
+                    title="Datum des ersten Montags im 2. Halbjahr"
+                />
+                <p class="label">z.B. 9.2.2026</p>
+            </label>
 
-        <div class="frm-group">
-            <label for="file">Datei (csv / xls / xlsx):</label>
-            <input
-                type="file"
-                id="fileInput"
-                accept="text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                required
-            />
-            <span id="fileMsg" class="error-message text-alert"></span>
-        </div>
+            <label class="floating-label">
+                <span>Halbjahr</span>
+                <select
+                    id="semester"
+                    class="select select-xl w-lg validator"
+                    required
+                >
+                    <option disabled selected value="">Bitte Wählen:</option>
+                    <option value="1">1. Halbjahr</option>
+                    <option value="2">2. Halbjahr</option>
+                </select>
+                <p class="validator-hint">Required</p>
+            </label>
 
-        <button type="submit" class="btn btn-wide btn-alert"
-            >Halbjahresabschluss starten</button
-        >
-    </form>
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Datei (csv / xls / xlsx)</legend
+                >
+                <input
+                    type="file"
+                    id="fileInput"
+                    class="file-input file-input-xl w-lg validator"
+                    accept="text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    required
+                />
+            </fieldset>
+
+            <button type="submit" class="btn btn-xl w-lg btn-success">
+                Halbjahresabschluss starten</button
+            >
+        </form>
+    </div>
 </DefaultLayout>
-
-<style scoped>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    label {
-        font-weight: bold;
-    }
-
-    .frm {
-        max-width: 50%;
-        margin: 1rem auto;
-    }
-</style>
 
 <script>
     import { parse } from "date-fns";
     import { formatDateToDDMMYYYY, pb } from "@src/pocketbase";
+    import { toast } from "@src/toast";
 
-    const frm = document.getElementById("frm") as HTMLFormElement;
-    const submitBtn = frm.querySelector("button") as HTMLButtonElement;
-
+    const form = document.getElementById("frm") as HTMLFormElement;
+    const submitBtn = form.querySelector("button") as HTMLButtonElement;
     const yearInput = document.getElementById("year") as HTMLInputElement;
-    const yearMsg = document.getElementById("yearMsg") as HTMLSpanElement;
-
-    const semesterInput = document.getElementById(
-        "semester",
-    ) as HTMLSelectElement;
-    const semesterMsg = document.getElementById(
-        "semesterMsg",
-    ) as HTMLSpanElement;
-
     const splitDateInput = document.getElementById(
         "splitDate",
     ) as HTMLInputElement;
-    const splitDateMsg = document.getElementById(
-        "splitDateMsg",
-    ) as HTMLSpanElement;
+    const semesterInput = document.getElementById(
+        "semester",
+    ) as HTMLSelectElement;
 
     const fileInput = document.getElementById("fileInput") as HTMLInputElement;
-    const fileMsg = document.getElementById("fileMsg") as HTMLSpanElement;
 
     function validate() {
-        let valid = true;
-        yearMsg.innerText = "";
-        splitDateMsg.innerText = "";
-        semesterMsg.innerText = "";
-        fileMsg.innerText = "";
-
         const year = parseInt(yearInput.value);
         if (isNaN(year) || year < 2000) {
-            yearMsg.innerText = "Bitte geben Sie ein gültiges Jahr ein.";
-            valid = false;
+            toast("error", "Das Jahr muss eine Zahl größer als 2000 sein");
+            return false;
         }
 
         const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
         if (isNaN(splitDate.getTime())) {
-            splitDateMsg.innerText = "Bitte geben Sie ein gültiges Datum ein.";
-            valid = false;
+            toast("error", "Das Datum ist ungültig");
+            return false;
         } else {
             if (
                 splitDate.getFullYear() < year ||
                 splitDate.getFullYear() > year + 1
             ) {
-                splitDateMsg.innerText =
-                    "Das Datum muss innerhalb des Schuljahres liegen.";
-                valid = false;
+                toast(
+                    "error",
+                    `Das Datum muss zwischen ${year} und ${year + 1} liegen.`,
+                );
+                return false;
             }
             if (splitDate.getDay() !== 1) {
-                splitDateMsg.innerText = "Das Datum muss ein Montag sein.";
-                valid = false;
+                toast(
+                    "error",
+                    "Das Datum muss ein Montag sein. Bitte überprüfen Sie ihre Eingabe.",
+                );
+                return false;
             }
         }
 
         const semester = parseInt(semesterInput.value);
         if (isNaN(semester) || semester < 1 || semester > 2) {
-            semesterMsg.innerText = "Bitte wählen Sie ein Halbjahr aus.";
-            valid = false;
+            toast("error", "Das Semester muss 1 oder 2 sein");
+            return false;
         }
 
         if (fileInput?.files?.length === 0) {
-            fileMsg.innerText = "Bitte wählen Sie eine Datei aus.";
-            valid = false;
+            toast("error", "Bitte wählen Sie eine Datei aus");
+            return false;
         }
 
-        submitBtn.classList.toggle("btn-alert", !valid);
-        submitBtn.classList.toggle("btn-success", valid);
-        submitBtn.disabled = !valid;
-
-        return valid;
+        return true;
     }
 
     function setupYear() {
@@ -185,16 +164,14 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         } catch (e: any) {
             console.error(e);
             const yearStr = `${year}/${(year + 1).toString().substring(2)}`;
-            yearMsg.textContent = `Erstellen nicht möglich. Möglicherweise besteht bereits ein Eintrag für ${yearStr} ${semester}. Halbjahr.`;
-            fileMsg.textContent = `Bitte überprüfen sie ihre Eingabe.`;
+            toast(
+                "error",
+                `Fehler beim Erstellen des Halbjahresabschlusses für ${yearStr} ${semester}. Halbjahr. </br> Bitte überprüfen Sie ihre Eingabe.`,
+            );
         }
     }
 
     document.addEventListener("DOMContentLoaded", setupYear);
-    document.addEventListener("DOMContentLoaded", validate);
-    yearInput.addEventListener("input", validate);
-    splitDateInput.addEventListener("input", validate);
-    semesterInput.addEventListener("input", validate);
-    fileInput.addEventListener("input", validate);
-    frm.addEventListener("submit", submit);
+    form.addEventListener("submit", validate);
+    form.addEventListener("submit", submit);
 </script>

@@ -1,66 +1,36 @@
 ---
-import MustAdmin from "@components/MustAdmin.astro";
 import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
-    <MustAdmin />
+    <div class="flex flex-col gap-4 justify-center items-center h-full w-full">
+        <h1 class="text-4xl font-bold text-center">Abgeschlossenes Jahr</h1>
 
-    <h1>Abgeschlossenes Jahr</h1>
+        <div id="actions" class="flex flex-row gap-4">
+            <a class="btn w-sm btn-success" target="_blank" id="open_pdf"
+                >PDF Öffnen</a
+            >
+            <button class="btn w-sm btn-success" id="send_pdfs"
+                >PDFs per Email verteilen</button
+            >
+        </div>
 
-    <div id="actions">
-        <a class="btn btn-wide btn-success" target="_blank" id="open_pdf"
-            >PDF Öffnen</a
-        >
-        <button class="btn btn-wide btn-success" id="send_pdfs"
-            >PDFs per Email verteilen</button
-        >
-    </div>
+        <table id="hours" class="table table-zebra">
+            <thead>
+                <tr>
+                    <th>Lehrer:in</th>
+                    <th>Stunden</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
-    <table id="hours">
-        <thead>
-            <tr>
-                <th>Lehrer:in</th>
-                <th>Stunden</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-
-    <div id="wrapper">
-        <textarea name="out" id="out" readonly></textarea>
+        <div id="wrapper" class="grow w-full">
+            <textarea name="out" id="out" class="w-full h-full" readonly
+            ></textarea>
+        </div>
     </div>
 </DefaultLayout>
-
-<style scoped>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    #actions {
-        display: flex;
-        justify-content: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    #wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 1rem auto;
-    }
-
-    textarea {
-        width: 80%;
-        margin: 1rem auto;
-        padding: 2px;
-        border: 1px solid rgb(var(--border-color));
-        min-height: 10rem;
-    }
-</style>
 
 <script>
     import type {
@@ -70,6 +40,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     } from "@src/pocketbase-types";
     import { pb } from "@src/pocketbase";
     import { toast } from "@src/toast";
+    import { Collections } from "@src/pocketbase-types";
 
     const urlParams = new URLSearchParams(window.location.search);
     const year = urlParams.get("year");
@@ -91,10 +62,12 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         .collection("years")
         .getFirstListItem(`start_year=${year}&&semester=${semester}`);
     const record = await pb
-        .collection("results")
+        .collection(Collections.Results)
         .getFirstListItem<
             ResultsResponse<{ [key: string]: number }>
         >(`semester="${sem.id}"`);
+
+    out.textContent = record.untis;
 
     async function actions() {
         if (!record) {
@@ -142,32 +115,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         }
     }
 
-    async function genText() {
-        if (!record || !record.data) {
-            toast("error", "Keine Daten gefunden");
-            return;
-        }
-
-        let text = "";
-        for (const [i, [teacher, hours]] of Object.entries(
-            record.data,
-        ).entries() as any) {
-            type Expand = { user: UsersResponse };
-            const acro = await pb
-                .collection("acronyms")
-                .getFirstListItem<
-                    AcronymsResponse<Expand>
-                >(`acronym="${teacher.toLowerCase()}"`, {
-                    expand: "user",
-                });
-
-            text += `${i + 10000};;;"${acro.expand!.user.short.toUpperCase()}";"500","${hours.toFixed(3)};;;"LK";0.000;0.000;;${hours.toFixed(3)}\n`;
-        }
-
-        out.value = text;
-    }
-
     actions();
     fillTable();
-    genText();
 </script>

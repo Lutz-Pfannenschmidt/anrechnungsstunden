@@ -155,12 +155,9 @@ func makePdf(e *core.RecordEvent) error {
 			})
 		}
 
-		name := user_data.Name
-		if strings.Contains(name, "_NAME_COLLISION_") {
-			name = strings.Split(name, "_NAME_COLLISION_")[0] + "(" + user_data.Short + ")"
-		}
+		name := strings.Split(user_data.Name, "_NAME_COLLISION_")[0] + " (" + strings.ToUpper(user_data.Short) + ")"
 
-		path := os.TempDir() + "/" + user_data.Name + ".pdf"
+		path := os.TempDir() + "/" + user_data.Name + user_data.Short + ".pdf"
 		files = append(files, path)
 		out.RenderTemplate(
 			templatePath,
@@ -170,7 +167,7 @@ func makePdf(e *core.RecordEvent) error {
 			user_data.AvgTime,
 			int(user_data.ClassLeadPercentage),
 			r.LeadPoints,
-			r.Data[user_data.Name],
+			r.Data[strings.ToUpper(user_data.Short)],
 			data,
 		)
 

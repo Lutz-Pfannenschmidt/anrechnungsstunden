@@ -1,44 +1,41 @@
 ---
-import MustAdmin from "../../../../components/MustAdmin.astro";
 import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Benutzerverwaltung">
-    <MustAdmin />
+    <h1 class="text-4xl font-bold text-center">
+        Benutzerverwaltung | CSV Import
+    </h1>
 
-    <h1>Benutzerverwaltung | CSV Import</h1>
+    <div class="flex flex-col justify-center items-center">
+        <form id="create-frm" class="flex flex-col gap-4">
+            <p class="text-alert text-center w-md">
+                Importieren sie Lehrpersonen aus einer CSV-Datei. Die Datei muss
+                die Spalten <code class="text-primary">Name</code> und <code
+                    class="text-primary">E-Mail</code
+                > enthalten und durch Kommas getrennt sein. Eine E-Mail Addresse
+                muss in dem Format
+                <code class="text-primary">AAA@B.CC</code> sein, wobei alle Teile
+                auch länger sein können.
+            </p>
 
-    <form class="frm frm-wide" id="create-frm">
-        <p>
-            Importiere Benutzer aus einer CSV-Datei. Die Datei muss die Spalten <code
-                >Name</code
-            > und <code>E-Mail</code> enthalten und durch Kommas getrennt sein. Eine
-            E-Mail Addresse muss in dem Format <code>AAA@B.CC</code> sein, wobei
-            alle Teile auch länger sein können.
-        </p>
-        <div class="frm-group">
-            <label for="csv">CSV-Datei:</label>
-            <input class="inpt" type="file" id="csv" name="csv" required />
-            <span id="csvMsg" class="error-message text-alert"></span>
-        </div>
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">CSV Datei</legend>
+                <input
+                    type="file"
+                    id="csv"
+                    class="file-input file-input-xl w-lg validator"
+                    accept="text/csv"
+                    required
+                />
+            </fieldset>
 
-        <button class="btn btn-alert btn-wide" disabled type="submit"
-            >CSV importieren</button
-        >
-    </form>
+            <button class="btn btn-alert w-full" disabled type="submit"
+                >CSV importieren</button
+            >
+        </form>
+    </div>
 </DefaultLayout>
-
-<style>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    form {
-        margin: 0 auto;
-    }
-</style>
 
 <script>
     import { pb } from "@src/pocketbase";
@@ -93,7 +90,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
             const lines = text.trim().split("\n");
 
             Swal.fire({
-                title: "Benutzer werden erstellt...",
+                title: "Lehrpersonen werden erstellt...",
                 icon: "info",
                 showConfirmButton: false,
             });
@@ -109,6 +106,12 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                     toast(
                         "error",
                         `Zeile hat nicht genügend von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`,
+                    );
+                    return;
+                } else if (parts.length > 2) {
+                    toast(
+                        "error",
+                        `Zeile hat zu viele von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`,
                     );
                     return;
                 }
@@ -136,16 +139,16 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
             }
 
             if (!lines || lines.length === 0) {
-                toast("error", "Keine Benutzer zum Importieren gefunden.");
+                toast("error", "Keine Lehrpersonen zum Importieren gefunden.");
                 return;
             }
 
             try {
                 await batch.send();
-                toast("error", "Benutzer erfolgreich importiert.");
+                toast("error", "Lehrpersonen erfolgreich importiert.");
                 window.location.href = "/admin/users";
             } catch (error: any) {
-                toast("error", "Fehler beim Importieren der Benutzer.");
+                toast("error", "Fehler beim Importieren der Lehrpersonen.");
                 window.location.reload();
             }
         };

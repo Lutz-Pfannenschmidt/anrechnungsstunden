@@ -1,31 +1,33 @@
 ---
-import MustAdmin from "../../components/MustAdmin.astro";
 import DefaultLayout from "../../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Admin Dashboard">
-    <MustAdmin />
+    <h1 class="text-4xl font-bold">Admin Dashboard</h1>
 
-    <h1>Admin Dashboard</h1>
-
-    <ul>
+    <ul class="menu w-md">
         <li><a href="/admin/data">Halbjahresverwaltung</a></li>
         <li><a href="/admin/points">Punkteverwaltung</a></li>
         <li><a href="/admin/users">Benutzerverwaltung</a></li>
-    </ul>
-    <hr />
-    <ul>
         <li>
-            <a target="_blank" href="/_">Datenbank</a>
-            <span class="text-warning">
-                (Nur im Notfall manuell bearbeiten!)
-            </span>
-        </li>
-        <li>
-            <a target="_blank" href="/_/#/settings">Datenbank Einstellungen</a>
-        </li>
-        <li>
-            <a target="_blank" href="/_/#/settings/mail">Email Einstellungen</a>
+            <details open>
+                <summary class="text-warning">Datenbank</summary>
+                <ul>
+                    <li>
+                        <a target="_blank" href="/_">Datenbank</a>
+                    </li>
+                    <li>
+                        <a target="_blank" href="/_/#/settings"
+                            >Datenbank Einstellungen</a
+                        >
+                    </li>
+                    <li>
+                        <a target="_blank" href="/_/#/settings/mail"
+                            >Email Einstellungen</a
+                        >
+                    </li>
+                </ul>
+            </details>
         </li>
     </ul>
 </DefaultLayout>

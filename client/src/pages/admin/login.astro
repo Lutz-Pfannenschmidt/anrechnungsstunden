@@ -3,101 +3,51 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Admin Login">
-    <div class="hero">
-        <form class="frm frm-wide" id="login-frm">
-            <h1 id="header">Admin Anmeldung</h1>
-            <div class="frm-group">
-                <label for="username">Email:</label>
+    <div class="w-full h-full flex flex-col gap-16 items-center justify-center">
+        <h1 class="text-xl font-bold">Admin Anmeldung</h1>
+        <form id="login" class="w-md flex flex-col gap-4">
+            <label class="floating-label">
+                <span>Email</span>
                 <input
-                    class="inpt"
-                    type="text"
                     id="username"
-                    name="username"
+                    class="input w-full validator"
+                    type="email"
                     required
+                    placeholder="Email Adresse"
                 />
-                <span id="usernameMsg" class="error-message text-alert"></span>
-            </div>
-            <div class="frm-group">
-                <label for="password">Passwort:</label>
-                <input
-                    class="inpt"
-                    type="password"
-                    id="password"
-                    name="password"
-                    required
-                />
-                <span id="passwordMsg" class="error-message text-alert"></span>
-            </div>
-            <a href="/_/#/request-password-reset"> Passwort vergessen?</a>
-            <button type="submit" class="btn btn-wide btn-alert">Log In</button>
+            </label>
 
-            <a href="/login" id="toggleAdmin">Zurück zur Benutzer Anmeldung</a>
+            <label class="floating-label">
+                <span>Passwort</span>
+                <input
+                    id="password"
+                    type="password"
+                    class="input w-full validator"
+                    required
+                    placeholder="Passwort"
+                    minlength="8"
+                />
+                <p class="validator-hint">
+                    Passwort muss mindestens 8 Zeichen lang sein.
+                </p>
+            </label>
+
+            <button class="btn btn-primary" type="submit">Anmelden</button>
         </form>
+
+        <a href="/" class="opacity-50 underline"
+            >Zurück zur Benutzer Anmeldung</a
+        >
     </div>
 </DefaultLayout>
 
-<style scoped>
-    .error-message {
-        min-height: 1.6rem;
-    }
-
-    button {
-        margin-bottom: 1rem;
-    }
-
-    #toggleAdmin {
-        cursor: pointer;
-        color: #747474;
-        text-decoration: none;
-    }
-</style>
-
 <script>
-    import { isValidEmail } from "../../email";
+    import { toast } from "@src/toast";
     import { login, logout } from "../../pocketbase";
 
-    const loginFrm = document.getElementById("login-frm") as HTMLFormElement;
+    const loginFrm = document.querySelector("form#login") as HTMLFormElement;
     const unameInpt = loginFrm.querySelector("#username") as HTMLInputElement;
     const passInpt = loginFrm.querySelector("#password") as HTMLInputElement;
-    const loginBtn = loginFrm.querySelector("button") as HTMLButtonElement;
-
-    const unameMsg = loginFrm.querySelector("#usernameMsg") as HTMLSpanElement;
-    const passMsg = loginFrm.querySelector("#passwordMsg") as HTMLSpanElement;
-
-    function checkValid() {
-        let valid = true;
-        unameMsg.textContent = "";
-        passMsg.textContent = "";
-
-        if (!isValidEmail(unameInpt.value)) {
-            valid = false;
-            unameMsg.textContent = "Bitte geben Sie eine gültige E-Mail ein";
-        }
-
-        if (passInpt.value.length < 8) {
-            valid = false;
-            passMsg.textContent =
-                "Das Passwort muss mindestens 8 Zeichen lang sein";
-        }
-
-        markValid(valid);
-    }
-
-    /**
-     * Marks the form as valid or invalid
-     * @param {boolean} isValid - Whether the form is valid
-     */
-    function markValid(isValid: boolean) {
-        if (isValid) {
-            loginBtn.disabled = false;
-            loginBtn.classList.remove("btn-alert");
-            loginBtn.classList.add("btn-success");
-        } else {
-            loginBtn.disabled = true;
-            loginBtn.classList.remove("btn-success");
-            loginBtn.classList.add("btn-alert");
-        }
-    }
 
     async function submitForm(e: Event) {
         e.preventDefault();
@@ -108,15 +58,14 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
         if (ok) {
             window.location.href = "/admin/";
         } else {
-            unameMsg.textContent = "Benutzername oder Passwort falsch";
-            passMsg.textContent = "Benutzername oder Passwort falsch";
-            markValid(false);
+            toast(
+                "error",
+                "Anmeldung fehlgeschlagen",
+                "Benutzername oder Passwort falsch",
+            );
         }
     }
 
     document.addEventListener("DOMContentLoaded", logout);
-    document.addEventListener("DOMContentLoaded", checkValid);
-    unameInpt.addEventListener("input", checkValid);
-    passInpt.addEventListener("input", checkValid);
     loginFrm.addEventListener("submit", submitForm);
 </script>

@@ -1,74 +1,91 @@
 ---
-import MustAdmin from "@components/MustAdmin.astro";
 import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Punkteverwaltung">
-    <MustAdmin />
+    <h1 class="text-4xl text-center font-bold">Punkteverwaltung</h1>
 
-    <h1>Punkteverwaltung</h1>
+    <p class="text-alert text-center">
+        Achtung! Bitte auf Rechtschreibung achten!
+    </p>
 
-    <p class="text-alert">Achtung! Bitte auf Rechtschreibung achten!</p>
+    <div class="flex justify-center">
+        <button id="new_button" class="btn btn-success btn-wide m-8"
+            >Neuer Eintrag</button
+        >
+    </div>
 
-    <table id="points">
+    <table id="points" class="table table-zebra">
         <thead>
             <tr>
                 <th>Unterricht</th>
                 <th>Stufe</th>
                 <th>Punkte pro Klausur</th>
-                <th></th>
+                <th>Aktionen</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
-    <div class="center">
-        <button id="new_button" class="btn btn-success">Neuer Eintrag</button>
-    </div>
+    <dialog id="new_popover" class="modal w-screen min-h-screen">
+        <div class="modal-box min-w-1/2 flex flex-col gap-4">
+            <h2 class="text-2xl font-bold text-center">Neuer Eintrag</h2>
+            <p class="text-warning text-center">
+                Achtung! Bitte auf Rechtschreibung achten!
+            </p>
+            <p class="text-center">
+                Zum Abbrechen auf den Hintergrund klicken oder ESC drücken.
+            </p>
 
-    <div id="new_popover" popover>
-        <h2>Neuer Eintrag</h2>
-        <form id="new_form">
-            <label for="subject">Unterricht</label>
-            <input type="text" id="subject" name="subject" required />
+            <form id="new_form" class="flex flex-col gap-6">
+                <label class="floating-label">
+                    <input
+                        id="subject"
+                        name="subject"
+                        required
+                        type="text"
+                        placeholder="Unterricht"
+                        class="input validator w-full"
+                    />
+                    <span>Unterricht</span>
+                </label>
 
-            <label for="grade">Stufe</label>
-            <input type="text" id="grade" name="grade" required />
+                <label class="floating-label">
+                    <input
+                        id="grade"
+                        name="grade"
+                        required
+                        type="text"
+                        placeholder="Stufe"
+                        class="input validator w-full"
+                    />
+                    <span>Stufe</span>
+                </label>
 
-            <label for="points">Punkte pro Klausur</label>
-            <input type="text" id="points" name="points" required />
+                <label class="floating-label">
+                    <input
+                        id="points"
+                        name="points"
+                        required
+                        type="text"
+                        placeholder="Punkte pro Klausur"
+                        class="input validator w-full"
+                    />
+                    <span>Punkte pro Klausur</span>
+                </label>
 
-            <div class="center">
-                <button type="submit" class="btn btn-success">Speichern</button>
-            </div>
+                <div class="modal-action flex-col md:flex-row gap-4">
+                    <button class="btn btn-lg btn-success w-full md:w-auto"
+                        >Speichern</button
+                    >
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
         </form>
-    </div>
+    </dialog>
 </DefaultLayout>
-
-<style scoped>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    button {
-        margin: 1rem 0;
-    }
-
-    label {
-        font-weight: bold;
-        font-size: large;
-    }
-
-    #new_form {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        width: 90%;
-        margin: 0 auto;
-    }
-</style>
 
 <script>
     import { pb, putExamPoints } from "@src/pocketbase";
@@ -83,7 +100,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     ) as HTMLButtonElement;
     const new_popover = document.getElementById(
         "new_popover",
-    ) as HTMLDivElement;
+    ) as HTMLDialogElement;
     const new_form = document.getElementById("new_form") as HTMLFormElement;
 
     pb.collection("exam_points").subscribe("*", async function (e) {
@@ -112,6 +129,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const delete_button = document.createElement("a");
             delete_button.textContent = "Löschen";
             delete_button.href = "#";
+            delete_button.classList.add("btn", "btn-error", "btn-sm", "mr-2");
             delete_button.addEventListener("click", async function (e: Event) {
                 e.preventDefault();
                 try {
@@ -123,14 +141,14 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const edit_button = document.createElement("a");
             edit_button.textContent = "Bearbeiten";
             edit_button.href = "#";
-            edit_button.style.marginRight = "1rem";
+            edit_button.classList.add("btn", "btn-primary", "btn-sm", "mr-2");
             edit_button.addEventListener("click", async function (e: Event) {
                 e.preventDefault();
                 new_form.setAttribute("data-id", point.id);
                 new_form.subject.value = point.subject;
                 new_form.grade.value = point.grade;
                 new_form.points.value = point.points;
-                new_popover.showPopover();
+                new_popover.showModal();
             });
             actions.appendChild(edit_button);
             actions.appendChild(delete_button);
@@ -157,15 +175,21 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             return;
         }
 
-        new_popover.hidePopover();
+        new_popover.close();
     });
 
     function openPopover() {
         new_form.reset();
-        new_popover.showPopover();
+        new_popover.showModal();
+    }
+
+    function onModalClose() {
+        new_form.removeAttribute("data-id");
+        new_form.reset();
     }
 
     new_button.addEventListener("click", openPopover);
+    new_popover.addEventListener("close", onModalClose);
 
     fillTable();
 </script>

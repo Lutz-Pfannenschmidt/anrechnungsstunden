@@ -1,5 +1,5 @@
 import PocketBase, { type OTPResponse } from "pocketbase";
-import { Collections, type ResultsRecord, type TeacherDataResponse, type TypedPocketBase } from "./pocketbase-types";
+import { Collections, type AcronymsResponse, type ResultsRecord, type TeacherDataResponse, type TypedPocketBase, type UsersResponse } from "./pocketbase-types";
 
 export const dev = process.env.NODE_ENV === "development";
 
@@ -18,6 +18,7 @@ export async function impersonate(userId: string, duration = 0): Promise<boolean
         const record = pb.authStore.record;
 
         localStorage.setItem("_superuser", JSON.stringify({ token, record }));
+        localStorage.setItem("_superuser_route", window.location.pathname);
 
         pb.authStore.clear();
         pb.authStore.save(client.authStore.token, client.authStore.record);
@@ -65,11 +66,7 @@ export function logout() {
     }
 }
 
-/**
- * Check if a user is logged in
- * @returns {boolean} - Whether a user is logged in or not
- */
-export function isLoggedIn() {
+export function isLoggedIn(): boolean {
     return pb.authStore.isValid;
 }
 
@@ -87,72 +84,7 @@ export async function refreshAuth() {
         return false;
     }
 
-    return pb.authStore.isValid;
-}
-
-/**
- * Redirect to the login page if the user is not logged in
- */
-export async function mustBeLoggedIn() {
-    if (pb.authStore.isValid && pb.authStore.record) {
-        const auth = await pb
-            .collection(pb.authStore.record.collectionName)
-            .authRefresh();
-        if (!auth || !auth.record) {
-            window.location.href = "/login";
-        }
-    } else {
-        window.location.href = "/login";
-    }
-}
-
-/**
- * Redirect to the login page if the user is not logged in
- */
-export async function mustNotBeLoggedIn() {
-    if (pb.authStore.isValid && pb.authStore.record) {
-        try {
-            const auth = await pb
-                .collection(pb.authStore.record.collectionName)
-                .authRefresh();
-            if (auth?.record) {
-                switch (pb.authStore.record.collectionName) {
-                    case "users":
-                        window.location.href = "/";
-                        break;
-                    case "_superusers":
-                        window.location.href = "/admin";
-                        break;
-                    default:
-                        window.location.href = "/login";
-                }
-            }
-        } catch {
-            switch (pb.authStore.record.collectionName) {
-                case "users":
-                    window.location.href = "/";
-                    break;
-                case "_superusers":
-                    window.location.href = "/admin";
-                    break;
-                default:
-                    window.location.href = "/login";
-            }
-        }
-    }
-}
-
-export function redirectLoggedIn() {
-    switch (pb.authStore.record?.collectionName) {
-        case "users":
-            window.location.href = "/";
-            break;
-        case "_superusers":
-            window.location.href = "/admin/";
-            break;
-        default:
-            window.location.href = "/login/";
-    }
+    return isLoggedIn();
 }
 
 export function isSuperuser() {
@@ -263,7 +195,7 @@ export async function putClassLead(teacherID: string, year: string | number, sem
         try {
             const record = await pb
                 .collection(Collections.ClassLead)
-                .update(existsID, { points: points });
+                .update(existsID, { percentage: points });
             return record.id;
         } catch (error) {
             return null;
@@ -272,7 +204,7 @@ export async function putClassLead(teacherID: string, year: string | number, sem
         try {
             const record = await pb
                 .collection(Collections.ClassLead)
-                .create({ teacher: teacherID, year: year, semester: semester, points: points });
+                .create({ teacher: teacherID, year: year, semester: semester, percentage: points });
             return record.id;
         } catch (error) {
             return null;
@@ -317,6 +249,14 @@ export async function deleteYears(yearID: string) {
     }
 }
 
+function genText(data: { [key: string]: number }): string {
+    let text = "";
+    for (const [i, [teacher, hours]] of Object.entries(data).entries() as Iterable<[number, [string, number]]>) {
+        text += `${i + 10000};;;"${teacher.toUpperCase()}";"500","${hours.toFixed(3)};;;"LK";0.000;0.000;;${hours.toFixed(3)}\n`;
+    }
+    return text;
+}
+
 export async function putResults(semester: string, data: { [key: string]: number }, lead_points: number): Promise<ResultsRecord | null> {
     let existsID = "";
     try {
@@ -332,7 +272,7 @@ export async function putResults(semester: string, data: { [key: string]: number
         try {
             const record = await pb
                 .collection(Collections.Results)
-                .update(existsID, { data: data, lead_points: lead_points });
+                .update(existsID, { data: data, untis: genText(data), lead_points: lead_points });
             return record;
         } catch (error) {
             return null;
@@ -341,7 +281,7 @@ export async function putResults(semester: string, data: { [key: string]: number
         try {
             const record = await pb
                 .collection(Collections.Results)
-                .create({ semester: semester, data: data, lead_points: lead_points });
+                .create({ semester: semester, data: data, untis: genText(data), lead_points: lead_points });
             return record;
         } catch (error) {
             return null;

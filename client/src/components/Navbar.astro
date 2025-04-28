@@ -1,116 +1,110 @@
-<nav>
-    <a id="home" href="/">Hauptseite</a>
+---
+import Breadcumbs from "./Breadcumbs.astro";
+---
 
-    <div class="loggedin" style="display: none;">
-        <a href="/" class="right" id="logout">Abmelden</a>
-        <span class="right" id="username"></span>
-        <a class="right" id="impersonate" style="display: none;"
-            >Wieder als Admin anmelden</a
+<nav class="navbar bg-base-100 shadow-sm">
+    <div class="navbar-start">
+        <a id="home" class="btn btn-ghost text-xl" href="/"
+            >Anrechnungsstunden</a
         >
     </div>
-    <div class="loggedout">
-        <a href="/login" class="right">Anmelden</a>
+
+    <div class="navbar-center hidden md:flex">
+        <Breadcumbs />
+    </div>
+
+    <div class="navbar-end">
+        <ul
+            id="nav_loggedin"
+            class="menu flex-row min-w-max menu-horizontal px-1 hidden gap-4"
+        >
+            <li>
+                <a
+                    id="impersonate"
+                    class="hidden cursor-pointer btn btn-outline btn-warning"
+                    >Wieder als Admin anmelden</a
+                >
+            </li>
+            <li class="hidden md:flex">
+                <button class="btn btn-dash">
+                    <span id="username"></span>
+                    <div id="admin_badge" class="badge badge-error hidden">
+                        Admin
+                    </div>
+                    <div id="short_badge" class="badge badge-primary hidden">
+                    </div>
+                </button>
+            </li>
+            <li>
+                <a href="/" class="btn btn-outline btn-error" id="logout"
+                    >Abmelden</a
+                >
+            </li>
+        </ul>
+
+        <ul id="nav_loggedout" class="menu menu-horizontal px-1 hidden gap-4">
+            <li>
+                <a href="/login" class="btn btn-outline btn-success" id="logout"
+                    >Anmelden</a
+                >
+            </li>
+        </ul>
     </div>
 </nav>
-
-<style>
-    #impersonate {
-        cursor: pointer;
-        color: rgb(var(--accent-color));
-    }
-</style>
 
 <script>
     import { logout } from "../pocketbase";
     const logoutButton = document.getElementById("logout") as HTMLAnchorElement;
     logoutButton.addEventListener("click", () => {
         logout();
-        window.location.href = "/";
+        window.location.href = "/login";
     });
 </script>
 
 <script>
     import { isLoggedIn, isSuperuser, pb, refreshAuth } from "../pocketbase";
-    const loggedin = document.querySelector(".loggedin") as HTMLElement;
-    const loggedout = document.querySelector(".loggedout") as HTMLElement;
+    const inList = document.querySelector("#nav_loggedin") as HTMLElement;
+    const outList = document.querySelector("#nav_loggedout") as HTMLElement;
     const uname = document.getElementById("username") as HTMLSpanElement;
     const imp = document.getElementById("impersonate") as HTMLAnchorElement;
+    const adminBadge = document.getElementById("admin_badge") as HTMLElement;
+    const shortBadge = document.getElementById("short_badge") as HTMLElement;
 
     const home = document.getElementById("home") as HTMLAnchorElement;
 
     updateNav();
     function updateNav() {
         if (!isLoggedIn()) {
-            loggedin.style.display = "none";
-            loggedout.style.display = "block";
+            outList.classList.remove("hidden");
             return;
         }
 
-        loggedin.style.display = "block";
-        loggedout.style.display = "none";
+        inList.classList.remove("hidden");
 
         const impData = localStorage.getItem("_superuser");
+        const impRoute = localStorage.getItem("_superuser_route");
 
         if (isSuperuser()) {
             localStorage.removeItem("_superuser");
-            uname.innerText = pb.authStore.record?.email + " | Admin";
-            home.href = "/admin/index.html";
+            uname.innerText = pb.authStore.record?.email;
+            adminBadge.classList.remove("hidden");
+            home.href = "/admin/";
             return;
         } else if (impData && impData != "") {
-            imp.style.display = "block";
+            imp.classList.remove("hidden");
             imp.addEventListener("click", async () => {
                 const data = JSON.parse(impData);
                 pb.authStore.clear();
                 pb.authStore.save(data.token, data.record);
                 localStorage.removeItem("_superuser");
                 await refreshAuth();
-                window.location.href = "/admin";
+                window.location.href = impRoute ?? "/admin";
             });
         }
 
         uname.innerText =
-            pb.authStore.record?.name.split("_NAME_COLLISION_")[0] +
-            " | " +
-            pb.authStore.record?.short.toUpperCase();
+            pb.authStore.record?.name.split("_NAME_COLLISION_")[0];
+        shortBadge.innerText = pb.authStore.record?.short;
+        shortBadge.classList.remove("hidden");
     }
 </script>
-
-<style lang="scss">
-    nav {
-        background-color: var(--accent-color);
-        overflow: hidden;
-        border-bottom: 1px solid rgb(var(--border-color));
-
-        a,
-        span {
-            float: left;
-            display: block;
-            color: rgb(var(--text-color));
-            text-align: center;
-            padding: 14px 20px;
-            text-decoration: none;
-
-            line-height: 2em;
-            font-size: 1.2em;
-
-            border-right: 1px solid rgb(var(--border-color));
-
-            &.right {
-                float: right;
-                border-right: 0px;
-                border-left: 1px solid rgb(var(--border-color));
-            }
-        }
-
-        a {
-            transition:
-                background-color 0.3s,
-                color 0.3s;
-
-            &:hover {
-                background-color: rgb(var(--border-color));
-                color: rgb(var(--text-color));
-            }
-        }
-    }
-</style>

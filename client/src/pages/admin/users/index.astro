@@ -1,34 +1,39 @@
 ---
-import MustAdmin from "../../../components/MustAdmin.astro";
 import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Benutzerverwaltung">
-    <MustAdmin />
-
-    <h1>Benutzerverwaltung</h1>
+    <h1 class="text-4xl font-bold text-center">Benutzerverwaltung</h1>
 
     <hr />
-    <h2>Standardnutzer</h2>
-    <table id="users">
+    <h2 class="text-xl font-bold">Lehrpersonen</h2>
+    <table id="users" class="table table-sm table-zebra">
         <thead>
             <tr>
                 <th>Kürzel</th>
-                <th>Nachname</th>
+                <th>Nachname o.Ä.</th>
                 <th>E-Mail</th>
-                <th></th>
-                <th></th>
+                <th>Aktionen</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
-    <p><a href="/admin/users/new/csv">CSV Import</a></p>
-    <p><a href="/admin/users/new/user">Neuen Benutzer anlegen</a></p>
+    <div class="flex flex-row gap-4">
+        <p>
+            <a href="/admin/users/new/csv" class="btn btn-primary">CSV Import</a
+            >
+        </p>
+        <p>
+            <a href="/admin/users/new/user" class="btn btn-primary"
+                >Neue Lehrperson anlegen</a
+            >
+        </p>
+    </div>
 
     <hr />
-    <h2>Admins</h2>
-    <table id="admins">
+    <h2 class="text-xl font-bold">Admins</h2>
+    <table id="admins" class="table table-zebra">
         <thead>
             <tr>
                 <th>E-Mail</th>
@@ -38,16 +43,12 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         <tbody></tbody>
     </table>
 
-    <p><a href="/admin/users/new/admin">Neuen Admin anlegen</a></p>
+    <p>
+        <a href="/admin/users/new/admin" class="btn btn-primary"
+            >Neuen Admin anlegen</a
+        >
+    </p>
 </DefaultLayout>
-
-<style>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-</style>
 
 <script>
     import { impersonate, pb } from "../../../pocketbase";
@@ -65,30 +66,30 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             <td>${user.email}</td>
         `;
 
-        const impersonateRow = document.createElement("td");
+        const actionCell = document.createElement("td");
         const impLink = document.createElement("a");
         impLink.href = "#";
-        impLink.textContent = "Als Benutzer anmelden";
+        impLink.textContent = "Diese Person imitieren";
+        impLink.classList.add("btn", "btn-sm", "btn-success", "mr-2");
         impLink.onclick = async () => {
             const ok = await impersonate(user.id);
             if (ok) {
                 window.location.href = "/";
             }
         };
-        impersonateRow.appendChild(impLink);
-        tr.appendChild(impersonateRow);
+        actionCell.appendChild(impLink);
 
-        const del = document.createElement("td");
         const delLink = document.createElement("a");
         delLink.href = "#";
         delLink.textContent = "Löschen";
+        delLink.classList.add("btn", "btn-sm", "btn-error");
         delLink.onclick = async () => {
             await pb.collection("users").delete(user.id);
             window.location.reload();
         };
-        del.appendChild(delLink);
-        tr.appendChild(del);
+        actionCell.appendChild(delLink);
 
+        tr.appendChild(actionCell);
         tbody.appendChild(tr);
     }
 
@@ -118,6 +119,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
             const delLink = document.createElement("a");
             delLink.href = "#";
             delLink.textContent = "Löschen";
+            delLink.classList.add("btn", "btn-sm", "btn-error");
             delLink.onclick = async () => {
                 await pb.collection("_superusers").delete(user.id);
                 window.location.reload();

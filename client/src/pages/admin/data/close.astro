@@ -1,51 +1,28 @@
 ---
-import MustAdmin from "@components/MustAdmin.astro";
 import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
-    <MustAdmin />
+    <h1 class="text-4xl font-bold text-center">
+        Halbjahresabschluss abschließen
+    </h1>
 
-    <h1>Halbjahresabschluss abschließen</h1>
-
-    <table id="users">
+    <table id="users" class="table table-zebra">
         <thead>
             <tr>
                 <th>Lehrer:in</th>
-                <th>Status</th>
+                <th class="grow">Status</th>
                 <th></th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
-
-    <button id="submit" class="btn btn-wide btn-warning" disabled
-        >Abschließen</button
-    >
+    <div class="flex justify-center">
+        <button id="submit" class="btn btn-wide btn-warning" disabled
+            >Abschließen</button
+        >
+    </div>
 </DefaultLayout>
-
-<style scoped>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    h1 {
-        margin-bottom: 0;
-    }
-
-    .btn {
-        display: block;
-        margin: 1rem auto;
-        width: 50%;
-    }
-
-    table {
-        margin: 1rem auto;
-        width: 80%;
-    }
-</style>
 
 <script>
     import {
@@ -111,22 +88,33 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             `;
         }
 
-        const statusRow = document.createElement("td");
-        statusRow.textContent = "Wird geladen...";
-        tr.appendChild(statusRow);
+        const statusCol = document.createElement("td");
+        const status = document.createElement("div");
+        status.classList.add(
+            "status",
+            "status-error",
+            "status-success",
+            "mr-2",
+        );
+        statusCol.appendChild(status);
+        const statusText = document.createElement("span");
+        statusText.textContent = "Lädt...";
+        statusCol.appendChild(statusText);
+        tr.appendChild(statusCol);
 
-        const impersonateRow = document.createElement("td");
+        const impersonateCol = document.createElement("td");
         const impLink = document.createElement("a");
         impLink.href = "#";
-        impLink.textContent = "Als Benutzer anmelden";
+        impLink.classList.add("btn", "btn-success", "btn-sm");
+        impLink.textContent = "Diese Person Imitieren";
         impLink.onclick = async () => {
             const ok = await impersonate(row.expand!.user.id);
             if (ok) {
                 window.location.href = "/";
             }
         };
-        impersonateRow.appendChild(impLink);
-        tr.appendChild(impersonateRow);
+        impersonateCol.appendChild(impLink);
+        tr.appendChild(impersonateCol);
 
         (async () => {
             const data = await pb.collection("teacher_data").getList(1, 50, {
@@ -134,7 +122,13 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 expand: "teacher",
             });
             users_done = users_done && data.items.length > 0;
-            statusRow.textContent = `${data.items.length > 0 ? "" : "Nicht "} Abgegeben`;
+            statusText.textContent = `${data.items.length > 0 ? "" : "Nicht "} Abgegeben`;
+
+            if (data.items.length > 0) {
+                status.classList.remove("status-error");
+            } else {
+                status.classList.remove("status-success");
+            }
 
             teacher_data[row.user] = data;
             requests--;
@@ -228,7 +222,10 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 points -= record.avg_time * 7.84;
             } catch (e) {}
 
-            teacher_points[row.expand!.user.name] = Math.max(0, points);
+            teacher_points[row.expand!.user.short.toUpperCase()] = Math.max(
+                0,
+                points,
+            );
         }
 
         Swal.fire({

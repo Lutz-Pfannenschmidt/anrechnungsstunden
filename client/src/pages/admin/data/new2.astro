@@ -1,149 +1,119 @@
 ---
-import MustAdmin from "@components/MustAdmin.astro";
 import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
-    <MustAdmin />
-
-    <h1>Halbjahresabschluss Schritt 2</h1>
-    <p id="date"></p>
-    <h2>
+    <h1 class="text-4xl font-bold text-center">
+        Halbjahresabschluss Schritt 2
+    </h1>
+    <p id="date" class="text-center"></p>
+    <h2 class="text-center">
         Bitte alle Lehrpersonen anklicken, die berücksichtigt werden sollen.
     </h2>
 
-    <table id="data">
+    <table id="data" class="table table-zebra">
         <thead>
             <tr>
+                <th class="text-right" id="select_all">
+                    <label>
+                        <input type="checkbox" class="checkbox" />
+                    </label>
+                </th>
                 <th>Lehrer:in</th>
                 <th>Durchschnittliche Stunden / Woche</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
+
     <div class="hero">
         <button type="submit" id="submit" class="btn btn-wide btn-success"
             >Weiter</button
         >
     </div>
 
-    <div id="user_popover" popover>
-        <h1>Benutzerzuweisung</h1>
-        <p>
-            Bitte tragen Sie die E-Mail-Adressen und Kürzel der Lehrpersonen
-            ein. <br /> Für bereits existierende Nutzer werden die Felder automatisch
-            gefüllt. <br /> Sollte ein manuell eingegebenes Kürzel bereits existieren,
-            wird die E-Mail-Adresse automatisch eingetragen. <br /> Sollte für ein
-            Kürzel keine E-Mail-Adresse eingetragen werden, wird die E-Mail-Adresse
-            aus der eingegebenen Domain und dem Kürzel generiert. <br /> Diese kann
-            manuell bearbeitet werden, falls sie nicht korrekt ist.
-        </p>
+    <dialog id="user_popover" class="modal w-screen min-h-screen">
+        <div class="modal-box min-w-11/12 min-h-11/12 flex flex-col gap-4">
+            <h3 class="text-xl font-bold">Benutzerzuweisung</h3>
+            <p>
+                Bitte tragen Sie die E-Mail-Adressen und Kürzel der Lehrpersonen
+                ein. <br /> Für bereits existierende Nutzer werden die Felder automatisch
+                gefüllt. <br /> Sollte ein manuell eingegebenes Kürzel bereits existieren,
+                wird die E-Mail-Adresse automatisch eingetragen. <br /> Sollte für
+                ein Kürzel keine E-Mail-Adresse eingetragen werden, wird die E-Mail-Adresse
+                aus der eingegebenen Domain und dem Kürzel generiert. <br /> Diese
+                kann manuell bearbeitet werden, falls sie nicht korrekt ist.
+            </p>
 
-        <div class="frm-group">
-            <label for="password">Domain:</label>
-            <input class="inpt" type="text" id="domain" name="domain" />
+            <label class="floating-label">
+                <span>Domain</span>
+                <label class="input input-xl w-full">
+                    <input
+                        id="domain"
+                        type="text"
+                        class="grow"
+                        required
+                        placeholder="Domain"
+                    />
+                    <span class="badge badge-neutral text-xs">Optional</span>
+                </label>
+            </label>
+
+            <table id="users" class="table table-zebra w-full">
+                <colgroup>
+                    <col span="1" class="min-w-1/5" />
+                    <col span="1" class="min-w-1/5" />
+                    <col span="1" class="min-w-1/5" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Kürzel</th>
+                        <th>E-Mail</th>
+                    </tr>
+                </thead>
+                <tbody> </tbody>
+            </table>
+
+            <p class="text-warning">
+                Durch das Klicken auf "Weiter" wird für Lehrpersonen, die noch
+                kein Konto haben, eines mit den eingegebenen Daten erstellt.
+            </p>
+
+            <p class="text-alert" id="userMsg"></p>
+
+            <div class="grow-1"></div>
+            <div class="modal-action flex-col md:flex-row gap-4">
+                <form method="dialog ">
+                    <button class="btn btn-lg btn-error w-full md:w-auto"
+                        >Abbrechen</button
+                    >
+                    <button
+                        id="confirm_users"
+                        class="btn btn-lg btn-success w-full md:w-auto"
+                        >Weiter</button
+                    >
+                </form>
+            </div>
         </div>
-
-        <table id="users">
-            <colgroup>
-                <col span="1" style="width: 30%;" />
-                <col span="1" style="width: 20%;" />
-                <col span="1" style="width: 50%;" />
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Kürzel</th>
-                    <th>E-Mail</th>
-                </tr>
-            </thead>
-            <tbody> </tbody>
-        </table>
-
-        <p class="text-warning">
-            Durch das Klicken auf "Weiter" wird für Lehrpersonen, die noch kein
-            Konto haben, eines mit den eingegebenen Daten erstellt.
-        </p>
-
-        <p class="text-alert" id="userMsg"></p>
-
-        <div class="center">
-            <button
-                type="submit"
-                id="confirm_users"
-                class="btn btn-wide btn-success">Weiter</button
-            >
-        </div>
-    </div>
+    </dialog>
 </DefaultLayout>
 
-<style scoped>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    h1 {
-        margin-bottom: 0;
-    }
-
-    .hero {
-        padding: 2rem;
-    }
-
-    tbody td,
-    tbody tr {
-        cursor: pointer;
-    }
-
-    p {
-        margin-top: 0;
-    }
-
-    [popover] {
-        overflow-y: scroll;
-        height: auto;
-    }
-
-    #users {
-        width: 100%;
-    }
-
-    #users input {
-    }
-
-    #user_popover {
-        width: 80%;
-        margin: 3rem auto;
-    }
-
-    #user_popover .frm-group {
-        width: 80%;
-        margin: 0 auto;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-    }
-
-    #user_popover .frm-group label {
-        font-size: large;
-        font-weight: bold;
-    }
-</style>
-
 <script>
-    import { formatDateToDDMMYYYY, pb, putData } from "@src/pocketbase";
+    import { pb, putData } from "@src/pocketbase";
+    import { Collections } from "@src/pocketbase-types";
     import { toast } from "@src/toast";
-    import Swal from "sweetalert2";
 
     const table = document.getElementById("data") as HTMLTableElement;
+    const selectAll = table.querySelector(
+        "#select_all",
+    ) as HTMLTableCellElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
     const submitBtn = document.getElementById("submit") as HTMLButtonElement;
 
     const user_popover = document.getElementById(
         "user_popover",
-    ) as HTMLDivElement;
+    ) as HTMLDialogElement;
     const domainInput = user_popover.querySelector(
         "#domain",
     ) as HTMLInputElement;
@@ -153,6 +123,8 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     const userMsg = user_popover.querySelector(
         "#userMsg",
     ) as HTMLParagraphElement;
+
+    selectAll.querySelector("input")!.checked = false;
 
     const urlParams = new URLSearchParams(window.location.search);
     const year = parseInt(urlParams.get("year") || "");
@@ -211,19 +183,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     }
     console.log(data);
 
-    if (Object.keys(data.name_collisions).length > 0) {
-        let collision_text = "";
-        for (const key in data.name_collisions) {
-            collision_text += `${key}: ${data.name_collisions[key].join(", ")}\n`;
-        }
-        Swal.fire({
-            title: "Kollidierende Kürzel",
-            text: `Die folgenden Kürzel sind bereits vergeben:\n${collision_text}`,
-            icon: "warning",
-            confirmButtonText: "OK",
-        });
-    }
-
     const sortedData = Object.fromEntries(
         Object.entries(data.result)
             .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
@@ -233,25 +192,56 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     for (const key in sortedData) {
         const tr = document.createElement("tr");
         tr.setAttribute("name", key);
-        tr.setAttribute("checked", "false");
 
         let parts = (sortedData[key].toFixed(3).toString() + ".").split(".");
         let floatStr = `${parts[0].padStart(2, "0")}.${parts[1].padEnd(3, "0")}`;
 
+        let nameTd = document.createElement("td");
+        nameTd.textContent = key.split("_NAME_COLLISION_")[0];
+        if (key.includes("_NAME_COLLISION_")) {
+            nameTd.classList.add("text-warning");
+        }
+
         tr.innerHTML = `
-            <td>${key.split("_NAME_COLLISION_")[0]}</td>
+            <td class="text-right">
+                <label>
+                    <input type="checkbox" class="checkbox" />
+                </label>
+            </td>
+            ${nameTd.outerHTML}
             <td>${floatStr}</td>
         `;
-        tr.addEventListener("mousedown", () => {
-            if (user_popover.matches(":popover-open")) {
+        tr.addEventListener("click", (e: MouseEvent) => {
+            if (user_popover.open) {
                 return;
             }
 
-            const checked = tr.getAttribute("checked") === "true";
-            tr.setAttribute("checked", (!checked).toString());
+            const checkbox = tr.querySelector(
+                "input[type=checkbox]",
+            ) as HTMLInputElement;
+
+            if (e.target === checkbox) {
+                return;
+            }
+
+            checkbox.checked = !checkbox.checked;
         });
 
         tbody.appendChild(tr);
+    }
+
+    selectAll.querySelector("input")!.checked = false;
+
+    function selectAllCheckboxes(e: Event) {
+        const checkbox = e.target as HTMLInputElement;
+        const rows = tbody.querySelectorAll("tr");
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const checkBox = row.querySelector(
+                "input[type=checkbox]",
+            ) as HTMLInputElement;
+            checkBox.checked = checkbox.checked;
+        }
     }
 
     function submitSelect(e: Event) {
@@ -260,7 +250,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const name = row.getAttribute("name") as string;
-            const checked = row.getAttribute("checked") === "true";
+            const checked = (
+                row.querySelector("input[type=checkbox]") as HTMLInputElement
+            ).checked;
 
             if (checked) {
                 selected.push(name);
@@ -273,7 +265,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         }
 
         populatePopover(selected);
-        user_popover.showPopover();
+        user_popover.showModal();
     }
 
     function populatePopover(selected: string[]) {
@@ -292,7 +284,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 name.textContent =
                     key.split("_NAME_COLLISION_")[0] +
                     ` (~${sortedData[key].toFixed(2)}h)`;
-                name.style.color = "rgb(var(--warning-color))";
+                name.classList.add("text-warning");
             }
             tr.appendChild(name);
 
@@ -301,6 +293,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             shortInput.setAttribute("type", "text");
             shortInput.setAttribute("name", "short");
             shortInput.setAttribute("required", "true");
+            shortInput.classList.add("input", "input-sm", "w-full");
             short.appendChild(shortInput);
             tr.appendChild(short);
 
@@ -309,39 +302,18 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             emailInput.setAttribute("type", "email");
             emailInput.setAttribute("name", "email");
             emailInput.setAttribute("required", "true");
+            emailInput.classList.add("input", "input-sm", "w-full");
             email.appendChild(emailInput);
-            const domain = document.createElement("span");
-            domain.textContent = `@${domainInput.value}`;
-            domain.hidden = emailInput.value.includes("@");
-            email.appendChild(domain);
-
-            domainInput.addEventListener("input", () => {
-                if (emailInput.value.includes("@")) {
-                    domain.hidden = true;
-                    return;
-                } else if (emailInput.value === "") {
-                    domain.textContent = `${shortInput.value}@${domainInput.value}`;
-                    return;
-                }
-                domain.hidden = false;
-                domain.textContent = `@${domainInput.value}`;
-            });
 
             emailInput.addEventListener("input", () => {
-                if (emailInput.value.includes("@")) {
-                    domain.hidden = true;
-                    return;
-                } else if (emailInput.value === "") {
-                    domain.textContent = `${shortInput.value}@${domainInput.value}`;
-                    return;
+                if (emailInput.value === "") {
+                    emailInput.value = `${shortInput.value}@${domainInput.value}`;
                 }
-                domain.hidden = false;
-                domain.textContent = `@${domainInput.value}`;
             });
 
             tr.appendChild(email);
 
-            async function tryExists(name: string) {
+            async function tryNameExists(name: string) {
                 if (name.includes("_NAME_COLLISION_")) {
                     return;
                 }
@@ -351,7 +323,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 if (record) {
                     emailInput.disabled = true;
                     shortInput.disabled = true;
-                    domain.hidden = true;
 
                     emailInput.value = record.email;
 
@@ -362,7 +333,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 }
             }
 
-            tryExists(key);
+            tryNameExists(key);
 
             async function tryShortExists(short: string) {
                 const record = await pb
@@ -370,7 +341,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                     .getFirstListItem(`acronym="${short.toLowerCase()}"`, {});
                 if (record) {
                     emailInput.disabled = true;
-                    domain.hidden = true;
                     emailInput.value = record.email;
                 }
             }
@@ -380,12 +350,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             shortInput.addEventListener("input", () => {
                 emailInput.disabled = false;
                 clearTimeout(timeoutID);
-                if (emailInput.value === "") {
-                    domain.textContent = `${shortInput.value}@${domainInput.value}`;
-                }
-                if (shortInput.value === "" || shortInput.value.length < 3) {
+                emailInput.value = `${shortInput.value}@${domainInput.value}`;
+                if (shortInput.value.length < 3) {
                     emailInput.value = "";
-                    domain.hidden = emailInput.value.includes("@");
                     return;
                 }
                 if (timeoutID === undefined) {
@@ -402,6 +369,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     }
 
     async function submitCreate(e: Event) {
+        user_popover.close();
         confirmBtn.disabled = true;
         const rows = user_popover
             .querySelector("tbody")!
@@ -453,20 +421,33 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             users[name] = [short, email, ""];
         }
 
+        const userRows = await pb.collection(Collections.Users).getFullList();
+
         let batch = pb.createBatch();
         for (const key in users) {
             const [short, email] = users[key];
-            const id = `${email}${short}${key}0123456789012345`
-                .toLowerCase()
-                .replace(/[^a-z0-9]/g, "")
-                .substring(0, 15);
-            users[key][2] = id;
+            users[key][2] = randomString(15);
+
+            let found = false;
+            for (const row of userRows) {
+                if (
+                    row.short.toLowerCase() === short.toLowerCase() ||
+                    row.email === email
+                ) {
+                    users[key][2] = row.id;
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                continue;
+            }
 
             const pwd = `${Math.random().toString(36).slice(-8)}Aa1!`;
-            batch.collection("users").upsert({
-                id: id,
+            batch.collection(Collections.Users).upsert({
+                id: users[key][2],
                 email: email,
-                name: key,
+                name: key.split("_NAME_COLLISION_")[0],
                 short: short.toUpperCase(),
                 verified: true,
                 password: pwd,
@@ -477,12 +458,8 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const result = await batch.send();
         } catch (err) {
             toast("error", "Fehler beim Erstellen der Benutzer.");
-            user_popover.hidePopover();
             return;
         }
-
-        submitBtn.click();
-        confirmBtn.disabled = false;
 
         const must_complete: string[] = [];
 
@@ -490,14 +467,12 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const [short, email, id] = users[key];
             if (id === "") {
                 toast("error", `Benuzter ${key} konnte nicht gefunden werden.`);
-                user_popover.hidePopover();
                 return;
             }
 
             const data_id = await putData(id, yearsRecord.id, sortedData[key]);
             if (data_id === "") {
                 toast("error", `Fehler beim Hinzufügen der Daten für ${key}.`);
-                user_popover.hidePopover();
                 return;
             }
 
@@ -505,7 +480,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         }
 
         try {
-            await pb.collection("years").update(yearsRecord.id, {
+            await pb.collection(Collections.Years).update(yearsRecord.id, {
                 must_complete: must_complete,
                 state: "open",
             });
@@ -514,7 +489,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 "success",
                 `Halbjahresabschluss für ${yearStr}, ${semStr} erfolgreich aktualisiert.`,
             );
-            user_popover.hidePopover();
 
             setTimeout(() => {
                 window.location.href = "/admin/data/";
@@ -530,6 +504,19 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         }
     }
 
+    function randomString(length: number) {
+        var result = "";
+        var characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+        var charactersLength = characters.length;
+        for (var i = 0; i < length; i++) {
+            result += characters.charAt(
+                Math.floor(Math.random() * charactersLength),
+            );
+        }
+        return result;
+    }
+
+    selectAll.addEventListener("click", selectAllCheckboxes);
     submitBtn.addEventListener("click", submitSelect);
     confirmBtn.addEventListener("click", submitCreate);
 </script>

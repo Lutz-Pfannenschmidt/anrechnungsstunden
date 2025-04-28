@@ -1,23 +1,29 @@
 ---
-const version = process.env.DOCKER_IMAGE_VERSION || "dev";
+const date = new Date();
+const year = date.getFullYear();
+const month = String(date.getMonth() + 1).padStart(2, "0");
+const day = String(date.getDate()).padStart(2, "0");
+const hour = String(date.getHours()).padStart(2, "0");
+const minute = String(date.getMinutes()).padStart(2, "0");
+const second = String(date.getSeconds()).padStart(2, "0");
+
+const formattedDate = `${year}.${month}.${day}-${hour}.${minute}.${second}`;
+const version = process.env.DOCKER_IMAGE_VERSION || `${formattedDate}_dev`;
 ---
 
-<footer>
-    Version: {version}
-    <span>von Lutz Pfannenschmidt</span>
+<footer class="footer sm:footer-horizontal bg-base-300 text-base-content p-4">
+    <aside class="w-full flex flex-row gap-4">
+        <p>
+            Version: <b>{version}</b>
+        </p>
+        <p></p>
+        <p>
+            <a
+                class="link link-primary"
+                href="https://hub.docker.com/r/lutzpfannenschmidt/anrechnungsstundenberechner/tags"
+                target="_blank"
+                rel="noopener noreferrer">Docker Hub</a
+            >
+        </p>
+    </aside>
 </footer>
-
-<style>
-    footer {
-        border-top: 1px solid rgb(var(--border-color));
-        padding: 20px;
-    }
-
-    footer span {
-        float: right;
-        color: transparent;
-        -webkit-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-    }
-</style>

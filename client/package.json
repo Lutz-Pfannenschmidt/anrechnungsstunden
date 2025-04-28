@@ -1,5 +1,5 @@
 {
-    "name": "",
+    "name": "anrechnungsstunden",
     "type": "module",
     "version": "0.0.1",
     "scripts": {
@@ -10,14 +10,19 @@
         "typegen": "npx pocketbase-typegen --db ../pb_data/data.db --out ./src/pocketbase-types.ts"
     },
     "dependencies": {
+        "@tailwindcss/vite": "^4.1.4",
         "astro": "^5.1.10",
+        "astro-heroicons": "^2.1.5-1",
+        "daisyui": "^5.0.28",
         "date-fns": "^4.1.0",
         "pocketbase": "^0.25.1",
         "read-excel-file": "^5.8.7",
         "simple-notify": "^1.0.6",
-        "sweetalert2": "^11.6.13"
+        "sweetalert2": "^11.6.13",
+        "tailwindcss": "^4.1.4"
     },
     "devDependencies": {
+        "@types/node": "^22.15.3",
         "sass-embedded": "^1.83.4"
     }
 }

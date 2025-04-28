@@ -24,18 +24,13 @@ type Pdf_Row struct {
 func onUserCreate(e *core.RecordEvent) error {
 	data := e.Record.PublicExport()
 
-	name := strings.ToLower(data["name"].(string))
 	short := strings.ToLower(data["short"].(string))
 
-	e.Record.Set("name", name)
-	e.Record.Set("short", short)
-
 	e.App.DB().
-		NewQuery("INSERT INTO acronyms (acronym, user) VALUES ({:acro}, {:user}), ({:acro2}, {:user})").
+		NewQuery("INSERT INTO acronyms (acronym, user) VALUES ({:acro}, {:user})").
 		Bind(dbx.Params{
-			"acro":  name,
-			"acro2": short,
-			"user":  e.Record.Id,
+			"acro": short,
+			"user": e.Record.Id,
 		}).Execute()
 
 	return e.Next()
@@ -44,14 +39,12 @@ func onUserCreate(e *core.RecordEvent) error {
 func onUserDelete(e *core.RecordEvent) error {
 	data := e.Record.PublicExport()
 
-	name := strings.ToLower(data["name"].(string))
 	short := strings.ToLower(data["short"].(string))
 
 	e.App.DB().
-		NewQuery("DELETE FROM acronyms WHERE acronym = {:acro} OR acronym = {:acro2}").
+		NewQuery("DELETE FROM acronyms WHERE acronym = {:acro}").
 		Bind(dbx.Params{
-			"acro":  name,
-			"acro2": short,
+			"acro": short,
 		}).Execute()
 
 	return e.Next()

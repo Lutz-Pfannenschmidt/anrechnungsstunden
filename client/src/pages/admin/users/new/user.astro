@@ -1,36 +1,71 @@
 ---
-import MustAdmin from "../../../../components/MustAdmin.astro";
 import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Benutzerverwaltung">
-    <MustAdmin />
+    <h1 class="text-4xl font-bold text-center mb-8">
+        Benutzerverwaltung | Neuer Benutzer
+    </h1>
 
-    <h1>Benutzerverwaltung | Neuer Benutzer</h1>
+    <div class="flex flex-col justify-center items-center">
+        <form id="create-frm" class="flex flex-col gap-4 min-w-md">
+            <label class="floating-label">
+                <span>Kürzel</span>
 
-    <form class="frm frm-wide" id="create-frm">
-        <div class="frm-group">
-            <label for="uname">Kürzel:</label>
-            <input class="inpt" type="text" id="uname" name="uname" required />
-            <span id="unameMsg" class="error-message text-alert"></span>
-        </div>
-        <div class="frm-group">
-            <label for="email">E-Mail:</label>
-            <input class="inpt" type="email" id="email" name="email" required />
-            <span id="emailMsg" class="error-message text-alert"></span>
-        </div>
-        <div class="frm-group">
-            <label for="name">Nachname:</label>
-            <input class="inpt" type="text" id="name" name="name" required />
-            <span id="nameMsg" class="error-message text-alert"></span>
-        </div>
+                <input
+                    id="uname"
+                    type="text"
+                    class="input input-xl validator w-full"
+                    required
+                    placeholder="Kürzel"
+                    minlength="3"
+                    title="Das Kürzel muss mindestens 3 Zeichen lang sein"
+                />
+                <p class="validator-hint">
+                    Das Kürzel muss mindestens 3 Zeichen lang sein.
+                </p>
+            </label>
 
-        <button class="btn btn-alert btn-wide" disabled type="submit"
-            >Benutzer erstellen</button
-        >
+            <label class="floating-label">
+                <span>Email</span>
 
-        <span id="msg" class="error-message text-alert"></span>
-    </form>
+                <input
+                    id="email"
+                    type="email"
+                    class="input input-xl validator w-full"
+                    required
+                    placeholder="Email"
+                    title="E-Mail Adresse"
+                />
+                <p class="validator-hint">
+                    Bitte geben Sie eine gültige E-Mail-Adresse ein.
+                </p>
+            </label>
+
+            <label class="floating-label">
+                <span>Nachname</span>
+
+                <input
+                    id="name"
+                    type="text"
+                    class="input input-xl validator w-full"
+                    required
+                    placeholder="Nachname"
+                    minlength="1"
+                    title="Bitte geben Sie den Nachnamen des Benutzers ein."
+                />
+                <p class="validator-hint">
+                    Bitte geben Sie den Nachnamen des Benutzers ein.
+                </p>
+            </label>
+
+            <button class="btn w-full" disabled type="submit"
+                >Benutzer erstellen</button
+            >
+
+            <span id="msg" class="error-message text-alert"></span>
+        </form>
+    </div>
 </DefaultLayout>
 
 <style>
@@ -44,6 +79,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 </style>
 
 <script>
+    import { toast } from "@src/toast";
     import { isValidEmail } from "../../../../email";
     import { pb } from "../../../../pocketbase";
 
@@ -53,12 +89,6 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
     const usernameInpt = createFrm.querySelector("#uname") as HTMLInputElement;
     const emailInpt = createFrm.querySelector("#email") as HTMLInputElement;
     const nameInpt = createFrm.querySelector("#name") as HTMLInputElement;
-
-    const usernameMsg = createFrm.querySelector("#unameMsg") as HTMLSpanElement;
-    const emailMsg = createFrm.querySelector("#emailMsg") as HTMLSpanElement;
-    const nameMsg = createFrm.querySelector("#nameMsg") as HTMLSpanElement;
-
-    const msg = createFrm.querySelector("#msg") as HTMLSpanElement;
 
     async function submitForm(event: Event) {
         event.preventDefault();
@@ -82,8 +112,10 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
         try {
             await pb.collection("users").create(body);
         } catch (error: any) {
-            msg.textContent =
-                "Fehler beim Erstellen des Benutzers: Entweder existiert bereits ein Benutzer mit diesem Kürzel oder dieser E-Mail-Adresse.";
+            toast(
+                "error",
+                "Es existiert bereits ein Benutzer mit diesem Kürzel oder dieser E-Mail-Adresse.",
+            );
             return;
         }
 
@@ -94,26 +126,16 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
     function checkValid() {
         let valid = true;
-        usernameMsg.textContent = "";
-        emailMsg.textContent = "";
-        nameMsg.textContent = "";
-
         if (usernameInpt.value.length < 3) {
             valid = false;
-            usernameMsg.textContent =
-                "Das Kürzel muss mindestens 3 Zeichen lang sein.";
         }
 
         if (!isValidEmail(emailInpt.value)) {
             valid = false;
-            emailMsg.textContent =
-                "Bitte geben Sie eine gültige E-Mail-Adresse ein.";
         }
 
         if (nameInpt.value.length < 1) {
             valid = false;
-            nameMsg.textContent =
-                "Bitte geben Sie den Nachnamen des Benutzers ein.";
         }
 
         markValid(valid);

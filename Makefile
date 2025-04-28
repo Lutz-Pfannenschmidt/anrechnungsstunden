@@ -1,5 +1,5 @@
 IMAGE_NAME = lutzpfannenschmidt/anrechnungsstundenberechner
-VERSION := $(shell date +%Y.%m.%d-%H%M%S)
+VERSION := $(shell date +%Y.%m.%d-%H.%M.%S)
 
 buildall:
 	@echo "Building all..."

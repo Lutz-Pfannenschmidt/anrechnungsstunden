@@ -1,52 +1,33 @@
 ---
-import MustAdmin from "@components/MustAdmin.astro";
 import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Halbjahresverwaltung">
-    <MustAdmin />
+    <h1 class="text-4xl font-bold text-center">Halbjahresverwaltung</h1>
 
-    <h1>Halbjahresverwaltung</h1>
-
-    <a href="/admin/data/new" class="btn btn-wide btn-success"
+    <a
+        href="/admin/data/new"
+        class="w-md btn btn-success text-center mx-auto my-2"
         >Neuen Halbjahresabschluss starten</a
     >
 
-    <table id="years">
-        <thead>
-            <tr>
-                <th>Schuljahr</th>
-                <th>Halbjahr</th>
-                <th>Status</th>
-                <th>Bearbeitet</th>
-                <th>Aktionen</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div class="overflow-x-auto">
+        <table id="years_table" class="table table-zebra">
+            <!-- head -->
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Schuljahr</th>
+                    <th>Halbjahr</th>
+                    <th>Status</th>
+                    <th>Bearbeitet</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody> </tbody>
+        </table>
+    </div>
 </DefaultLayout>
-
-<style>
-    h1,
-    h2,
-    p {
-        text-align: center;
-    }
-
-    .btn {
-        display: block;
-        margin: 1rem auto;
-        max-width: 50%;
-        min-width: fit-content;
-        text-align: center;
-    }
-</style>
-
-<style is:global>
-    .actions a {
-        margin-right: 0.5rem;
-    }
-</style>
 
 <script>
     import { pb } from "@src/pocketbase";
@@ -54,15 +35,16 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     import { toast } from "@src/toast";
     import Swal from "sweetalert2";
 
-    const years = await pb.collection("years").getFullList();
+    const years = await pb.collection(Collections.Years).getFullList();
 
-    const table = document.getElementById("years") as HTMLTableElement;
+    const table = document.getElementById("years_table") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
 
     main();
     async function main() {
         tbody.innerHTML = "";
-        for (const year of years) {
+        for (let i = 0; i < years.length; i++) {
+            const year = years[i];
             const tr = document.createElement("tr");
 
             const yearStr = `${year.start_year}/${(year.start_year + 1).toString().substring(2)}`;
@@ -78,43 +60,42 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 day: "2-digit",
             });
 
-            let state = document.createElement("span");
+            let link = "/404";
+            let text = "Fehler";
+            let btnText = "Fehler";
             switch (year.state) {
                 case "uploaded":
-                    state.innerHTML = `
-                        Wartet auf
-                        <a href="/admin/data/new2/?year=${year.start_year}&semester=${year.semester}&split_date=${splitStr}" class="text-warning bold">nächsten Schritt</a>`;
-                    state.classList.add("text-warning");
+                    link = `/admin/data/new2/?year=${year.start_year}&semester=${year.semester}&split_date=${splitStr}`;
+                    text = "Daten wurden hochgeladen";
+                    btnText = "Lehrpersonen auswählen";
                     break;
-
                 case "open":
-                    state.innerHTML = `
-                        Offen für Einsendungen.
-                        <a href="/admin/data/close/?year=${year.start_year}&semester=${year.semester}" class="text-success bold">Schließen</a>`;
-                    state.classList.add("text-success");
+                    link = `/admin/data/close/?year=${year.start_year}&semester=${year.semester}`;
+                    text = "Offen für Einsendungen";
+                    btnText = "Einsendungen schließen";
                     break;
-
                 case "closed":
-                    state.innerHTML = `Einsendungen geschlossen.
-                        <a href="/admin/data/closed/?year=${year.start_year}&semester=${year.semester}" class="text-success bold">Daten ansehen</a>`;
-                    state.classList.add("text-success");
-                    break;
-
-                default:
-                    state.textContent = "Fehler";
-                    state.classList.add("text-error");
+                    link = `/admin/data/closed/?year=${year.start_year}&semester=${year.semester}`;
+                    text = "Einsendungen geschlossen";
+                    btnText = "Ergebnisse anzeigen";
                     break;
             }
 
+            const dynamicBtn = document.createElement("a");
+            dynamicBtn.href = link;
+            dynamicBtn.classList.add("btn", "btn-primary", "btn-sm", "mr-2");
+            dynamicBtn.textContent = btnText;
+
             const delBtn = document.createElement("a");
             delBtn.href = "#";
+            delBtn.classList.add("btn", "btn-error", "btn-sm", "mr-2");
             delBtn.textContent = "Löschen";
             const onDel = async () => {
                 const res = await Swal.fire({
-                    title: "Wirklch löschen?",
+                    title: "Wirklich löschen?",
                     showCancelButton: true,
-                    confirmButtonColor: "#3085d6",
-                    cancelButtonColor: "#d33",
+                    confirmButtonColor: "var(--color-error)",
+                    cancelButtonColor: "var(--color-success)",
                     confirmButtonText: "Ja",
                     cancelButtonText: "Nein",
                 });
@@ -128,40 +109,20 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
             const uncompleteBtn = document.createElement("a");
             uncompleteBtn.href = "#";
+            uncompleteBtn.classList.add("btn", "btn-warning", "btn-sm", "mr-2");
             uncompleteBtn.textContent = "Wieder öffnen";
             const onUncomplete = async () => {
                 const res = await Swal.fire({
                     title: "Wollen Sie den Halbjahresabschluss wirklich wieder öffnen?",
                     showCancelButton: true,
-                    confirmButtonColor: "#3085d6",
-                    cancelButtonColor: "#d33",
+                    confirmButtonColor: "var(--color-error)",
+                    cancelButtonColor: "var(--color-success)",
                     confirmButtonText: "Ja, wieder öffnen",
                     cancelButtonText: "Nein",
                 });
 
                 if (res.isConfirmed) {
                     toast("info", "Wird geöffnet...");
-
-                    const pdfs = await pb
-                        .collection(Collections.Pdfs)
-                        .getFullList({
-                            filter: pb.filter("semester={:semester}", {
-                                semester: year.id,
-                            }),
-                        });
-
-                    const batch = pb.createBatch();
-                    for (const pdf of pdfs) {
-                        batch.collection(Collections.Pdfs).delete(pdf.id);
-                    }
-
-                    if (pdfs.length > 0) {
-                        try {
-                            await batch.send();
-                        } catch (e) {
-                            toast("error", "Fehler beim Öffnen");
-                        }
-                    }
 
                     try {
                         const record = await pb
@@ -174,27 +135,26 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                         await pb
                             .collection(Collections.Results)
                             .delete(record.id);
-
-                        await pb.collection(Collections.Years).update(year.id, {
-                            state: "open",
-                        });
                     } catch (e) {
                         toast("error", "Fehler beim Öffnen");
                     }
                     toast("success", "Wieder geöffnet");
+                    window.location.reload();
                     main();
                 }
             };
             uncompleteBtn.onclick = onUncomplete;
 
             tr.innerHTML = `
+                <td>${i + 1}</td>
                 <td>${yearStr}</td>
                 <td>${semesterStr}</td>
-                <td>${state.outerHTML}</td>
+                <td>${text}</td>
                 <td>${changeStr}</td>
                 <td class="actions"></td>
             `;
 
+            tr.lastElementChild?.appendChild(dynamicBtn);
             tr.lastElementChild?.appendChild(delBtn);
             if (year.state === "closed") {
                 tr.lastElementChild?.appendChild(uncompleteBtn);

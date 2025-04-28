@@ -3,63 +3,49 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="OTP Anmeldung">
-    <div class="hero">
-        <form class="frm frm-wide" id="login-frm">
-            <h1 id="header">Anmeldung</h1>
-            <div class="frm-group">
-                <label for="username">Kürzel / Email:</label>
+    <div class="grow-1 flex flex-col gap-16 items-center justify-center">
+        <h1 class="text-xl font-bold">Benutzer Anmeldung</h1>
+        <form id="login" class="w-md flex flex-col gap-4">
+            <label class="floating-label">
+                <span>Kürzel</span>
                 <input
-                    class="inpt"
-                    type="text"
                     id="username"
-                    name="username"
+                    class="input w-full validator"
+                    placeholder="Kürzel"
+                    type="text"
                     required
+                    pattern="[A-Za-zäöüÄÖÜß][A-Za-zäöüÄÖÜß+-_]*"
+                    minlength="3"
+                    maxlength="30"
+                    title="Mindestens 3 Zeichen, maximal 30 Zeichen, nur Buchstaben und +-_ erlaubt"
                 />
-                <span id="usernameMsg" class="error-message text-alert"></span>
-            </div>
-            <button type="submit" class="btn btn-wide btn-alert">Log In</button>
+                <p class="validator-hint">
+                    Mindestens 3 Zeichen, maximal 30 Zeichen, <br />
+                    nur Buchstaben und +-_ sind erlaubt.
+                </p>
+            </label>
+
+            <button class="btn btn-primary" type="submit">Anmelden</button>
         </form>
-        <a href="/admin/login" id="toggleAdmin">Zur Admin Anmeldung</a>
+
+        <a href="/admin/login" class="opacity-50 underline"
+            >Zur Admin Anmeldung</a
+        >
     </div>
 </DefaultLayout>
-
-<style scoped>
-    .error-message {
-        min-height: 1.6rem;
-    }
-
-    button {
-        margin-bottom: 1rem;
-    }
-
-    .hidden {
-        display: none;
-    }
-
-    #toggleAdmin {
-        cursor: pointer;
-        color: #747474;
-        text-decoration: none;
-    }
-</style>
 
 <script>
     import type { OTPResponse } from "pocketbase";
     import Swal from "sweetalert2";
-    import {
-        loginOTP,
-        logout,
-        pb,
-        redirectLoggedIn,
-        requestOTP,
-    } from "../pocketbase";
+    import { loginOTP, logout, pb, requestOTP } from "../pocketbase";
     import { toast } from "../toast";
 
-    const loginFrm = document.getElementById("login-frm") as HTMLFormElement;
-    const unameInpt = loginFrm.querySelector("#username") as HTMLInputElement;
-    const loginBtn = loginFrm.querySelector("button") as HTMLButtonElement;
-
-    const unameMsg = loginFrm.querySelector("#usernameMsg") as HTMLSpanElement;
+    const unameInpt = document.querySelector(
+        "input#username",
+    ) as HTMLInputElement;
+    const loginBtn = document.querySelector(
+        "form#login button",
+    ) as HTMLButtonElement;
 
     let otp_req: OTPResponse | null = null;
 
@@ -70,7 +56,7 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
     if (req_id && otp) {
         loginOTP(req_id, otp).then((ok) => {
             if (ok) {
-                redirectLoggedIn();
+                window.location.href = "/";
             } else {
                 toast("error", "Einmalpasswort falsch oder abgelaufen");
             }
@@ -86,45 +72,11 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
             if (!value) {
                 return "Einmalpasswort darf nicht leer sein!";
             }
+            return null;
         },
     });
 
-    function checkValid() {
-        let valid = true;
-        unameMsg.textContent = "";
-
-        if (unameInpt.value.length < 3) {
-            valid = false;
-            unameMsg.textContent =
-                "Das Kürzel muss mindestens 3 Zeichen lang sein";
-        }
-
-        if (unameInpt.value.indexOf(" ") !== -1) {
-            valid = false;
-            unameMsg.textContent =
-                "Das Kürzel darf keine Leerzeichen enthalten";
-        }
-
-        markValid(valid);
-    }
-
-    /**
-     * Marks the form as valid or invalid
-     * @param {boolean} isValid - Whether the form is valid
-     */
-    function markValid(isValid: boolean) {
-        if (isValid) {
-            loginBtn.disabled = false;
-            loginBtn.classList.remove("btn-alert");
-            loginBtn.classList.add("btn-success");
-        } else {
-            loginBtn.disabled = true;
-            loginBtn.classList.remove("btn-success");
-            loginBtn.classList.add("btn-alert");
-        }
-    }
-
-    async function submitForm(e: Event) {
+    async function login(e: Event) {
         e.preventDefault();
         let uname = unameInpt.value.toLowerCase();
         if (uname.indexOf("@") === -1) {
@@ -134,17 +86,18 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
                     .getFirstListItem(`acronym="${uname}"`, {});
 
                 if (!data || !data.email) {
-                    unameMsg.textContent =
-                        "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein";
-                    markValid(false);
+                    toast(
+                        "error",
+                        "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein",
+                    );
                     return;
                 }
                 uname = data.email;
             } catch (e) {
-                console.error(e);
-                unameMsg.textContent =
-                    "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein";
-                markValid(false);
+                toast(
+                    "error",
+                    "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein",
+                );
                 return;
             }
         }
@@ -152,8 +105,7 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         otp_req = await requestOTP(uname);
 
         if (!otp_req || !otp_req.otpId) {
-            unameMsg.textContent = "Kürzel / Email nicht gefunden";
-            markValid(false);
+            toast("error", "Kürzel/E-Mail-Adresse nicht gefunden.");
             return;
         }
 
@@ -161,7 +113,8 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
         if (result.isConfirmed) {
             const ok = await loginOTP(otp_req.otpId, result.value);
             if (ok) {
-                redirectLoggedIn();
+                window.location.href = "/";
+                return;
             } else {
                 popup.close();
                 toast("error", "Einmalpasswort falsch oder abgelaufen");
@@ -170,7 +123,5 @@ import DefaultLayout from "../layouts/DefaultLayout.astro";
     }
 
     document.addEventListener("DOMContentLoaded", logout);
-    document.addEventListener("DOMContentLoaded", checkValid);
-    unameInpt.addEventListener("input", checkValid);
-    loginFrm.addEventListener("submit", submitForm);
+    loginBtn.addEventListener("click", login);
 </script>
