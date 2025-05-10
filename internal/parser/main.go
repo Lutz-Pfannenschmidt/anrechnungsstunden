@@ -1,12 +1,11 @@
 package parser
 
 import (
+	"anrechnungsstundenberechner/internal/csv"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
-
-	"anrechnungsstundenberechner/internal/csv"
 )
 
 const DATE_LAYOUT = "2.1.2006" // DD.MM.YYYY
@@ -42,7 +41,7 @@ func parseAndValidateSplitDate(splitDate string) (*time.Time, error) {
 }
 
 func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult, err error) {
-	lines, err := csv.ReadAnyFileToCSV(path)
+	data, err := csv.ReadAnyFileToCSV(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
@@ -52,7 +51,7 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 		return nil, fmt.Errorf("error parsing split date: %w", err)
 	}
 
-	fromDate, _, err := findSchoolYear(lines, fromYear)
+	fromDate, _, err := findSchoolYear(data, fromYear)
 	if err != nil {
 		return nil, fmt.Errorf("error finding school year: %w", err)
 	}
@@ -62,53 +61,39 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 		NameCollisions: map[string][]string{},
 	}
 
-	var currName string
-	var currYear [2][]float64
-	var foundTable bool
-	var foundName bool
+	parts := strings.Split(data, "Unterricht / Werte")
 
-	for _, line := range *lines {
-		line = strings.TrimSpace(line)
-
-		if line == "Unterricht / Werte" {
-			foundName = true
-			foundTable = false
-			currName = ""
+	for _, part := range parts {
+		if part == "" {
 			continue
 		}
 
-		if foundName {
-			if line == "" {
-				continue
-			}
-			if strings.Contains(line, "Jahresmittelwert") {
-				currName = strings.TrimSpace(currName)
-				foundName = false
-				continue
-			}
-			currName += line
-			continue
-		}
+		name := uniqueName(strings.TrimSpace(strings.ReplaceAll(strings.Split(part, "Jahresmittelwert")[0], ",", "")), res)
 
-		if isHeaderLine(line) {
-			fmt.Println("Found header line:", line)
-			foundTable = true
-		} else if currName != "" && !foundTable && !foundName {
-			fmt.Println("Found name:", line)
-			currName = uniqueName(strings.ReplaceAll(currName, ",", ""), res)
-			currYear = [2][]float64{}
-			foundTable = false
-		} else if foundTable && currName != "" {
-			if strings.Contains(line, "Ferien") {
+		fmt.Println(name)
+
+		foundTable := false
+		yearData := [2][]float64{}
+
+		lines := strings.Split(part, "\n")
+		for _, l := range lines {
+			l = strings.TrimSpace(l)
+
+			if strings.HasPrefix(l, "Woche,") {
+				foundTable = true
 				continue
 			}
 
-			values := strings.Split(line, ",")
+			if !foundTable || strings.Contains(l, "Ferien") {
+				continue
+			}
+
+			values := strings.Split(l, ",")
 
 			if values[0] == "" {
-				avg1 := avg(currYear[0])
-				avg2 := avg(currYear[1])
-				res.Result[currName] = [2]float64{avg1, avg2}
+				avg1 := avg(yearData[0])
+				avg2 := avg(yearData[1])
+				res.Result[name] = [2]float64{avg1, avg2}
 
 				foundTable = false
 				continue
@@ -135,7 +120,7 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 			var fromDay, toDay int
 			n, err := fmt.Sscanf(values[1], "%d.%d.-%d.%d.", &fromDay, &fromMonth, &toDay, &toMonth)
 			if err != nil {
-				fmt.Println("Error parsing date_:", values[1])
+				fmt.Println("Error parsing date:", values[1])
 				return nil, err
 			} else if n != 4 {
 				fmt.Println("Error parsing date:", values[1])
@@ -148,8 +133,9 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 			}
 
 			for range weeks {
-				currYear[sem] = append(currYear[sem], c)
+				yearData[sem] = append(yearData[sem], c)
 			}
+
 		}
 
 	}
@@ -177,25 +163,6 @@ func isDayMonthAfterSplitDate(day int, month time.Month, splitDate, yearStart *t
 	return t.After(*splitDate)
 }
 
-func isHeaderLine(line string) bool {
-	return strings.Contains(line, "Woche") && strings.Contains(line, "Periode") && strings.Contains(line, "Soll")
-}
-
-// isName returns true if string consists of 3 or more a-zA-ZäöüßÄÖÜß,_-.
-// No other characters are allowed.
-func isName(line string) bool {
-	allowed := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZäöüßÄÖÜß,_-"
-	c := 0
-	for _, r := range line {
-		if strings.ContainsRune(allowed, r) {
-			c++
-		} else {
-			return false
-		}
-	}
-	return c >= 3
-}
-
 func uniqueName(name string, res *ParseResult) string {
 	newName := name
 	i := 1
@@ -217,12 +184,13 @@ func uniqueName(name string, res *ParseResult) string {
 	return newName
 }
 
-func findSchoolYear(lines *[]string, startYear int) (*time.Time, *time.Time, error) {
+func findSchoolYear(data string, startYear int) (*time.Time, *time.Time, error) {
 	r := strings.NewReplacer(" ", "", "Wochenwerte", "")
 	from := time.Date(9999, 12, 31, 23, 59, 59, 999999999, time.UTC)
 	to := time.Date(0, 0, 0, 0, 0, 0, 0, time.UTC)
 
-	for _, line := range *lines {
+	lines := strings.Split(data, "\n")
+	for _, line := range lines {
 		if strings.HasPrefix(line, "Wochenwerte") {
 			l := r.Replace(line)
 			parts := strings.Split(l, "-")
