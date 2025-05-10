@@ -65,17 +65,39 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 	var currName string
 	var currYear [2][]float64
 	var foundTable bool
+	var foundName bool
 
 	for _, line := range *lines {
 		line = strings.TrimSpace(line)
-		if isName(line) && !foundTable {
-			fmt.Println("Found name:", line)
-			currName = uniqueName(strings.ReplaceAll(line, ",", ""), res)
-			currYear = [2][]float64{}
+
+		if line == "Unterricht / Werte" {
+			foundName = true
 			foundTable = false
-		} else if isHeaderLine(line) {
+			currName = ""
+			continue
+		}
+
+		if foundName {
+			if line == "" {
+				continue
+			}
+			if strings.Contains(line, "Jahresmittelwert") {
+				currName = strings.TrimSpace(currName)
+				foundName = false
+				continue
+			}
+			currName += line
+			continue
+		}
+
+		if isHeaderLine(line) {
 			fmt.Println("Found header line:", line)
 			foundTable = true
+		} else if currName != "" && !foundTable && !foundName {
+			fmt.Println("Found name:", line)
+			currName = uniqueName(strings.ReplaceAll(currName, ",", ""), res)
+			currYear = [2][]float64{}
+			foundTable = false
 		} else if foundTable && currName != "" {
 			if strings.Contains(line, "Ferien") {
 				continue
@@ -87,6 +109,7 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 				avg1 := avg(currYear[0])
 				avg2 := avg(currYear[1])
 				res.Result[currName] = [2]float64{avg1, avg2}
+
 				foundTable = false
 				continue
 			}

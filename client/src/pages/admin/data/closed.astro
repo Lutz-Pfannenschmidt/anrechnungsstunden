@@ -104,7 +104,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const tr = document.createElement("tr");
 
             const teacher_td = document.createElement("td");
-            teacher_td.textContent = teacher;
+            teacher_td.textContent = teacher.split("_NAME_COLLISION_")[0];
             tr.appendChild(teacher_td);
 
             const hours_td = document.createElement("td");
