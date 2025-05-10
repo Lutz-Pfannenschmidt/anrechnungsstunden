@@ -70,8 +70,6 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 
 		name := uniqueName(strings.TrimSpace(strings.ReplaceAll(strings.Split(part, "Jahresmittelwert")[0], ",", "")), res)
 
-		fmt.Println(name)
-
 		foundTable := false
 		yearData := [2][]float64{}
 
