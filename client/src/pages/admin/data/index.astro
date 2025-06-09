@@ -5,11 +5,16 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 <DefaultLayout title="Halbjahresverwaltung">
     <h1 class="text-4xl font-bold text-center">Halbjahresverwaltung</h1>
 
-    <a
-        href="/admin/data/new"
-        class="w-md btn btn-success text-center mx-auto my-2"
-        >Neuen Halbjahresabschluss starten</a
-    >
+    <div class="flex justify-center flex-end gap-4">
+        <a href="/admin/data/new" class="w-md btn btn-warning text-center my-2"
+            >Neuen Halbjahresabschluss starten (Alte Ansicht)</a
+        >
+        <a
+            href="/admin/data/advanced"
+            class="w-md btn btn-success text-center my-2"
+            >Neuen Halbjahresabschluss starten</a
+        >
+    </div>
 
     <div class="overflow-x-auto">
         <table id="years_table" class="table table-zebra">
