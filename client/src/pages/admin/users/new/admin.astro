@@ -93,7 +93,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
         if (password !== password2) {
             toast(
                 "error",
-                "Die Passwörter stimmen nicht überein. Bitte überprüfen Sie Ihre Eingaben.",
+                "Die Passwörter stimmen nicht überein. Bitte überprüfen Sie Ihre Eingaben."
             );
             return;
         }
@@ -107,12 +107,12 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
         };
 
         try {
-            const record = await pb.collection("_superusers").create(data);
-        } catch (error: any) {
+            await pb.collection("_superusers").create(data);
+        } catch {
             toast(
                 "error",
                 "Es gab einen Fehler beim Erstellen des Administrators. Bitte überprüfen Sie Ihre Eingaben.",
-                "Möglicherweise ist die E-Mail-Adresse bereits vergeben.",
+                "Möglicherweise ist die E-Mail-Adresse bereits vergeben."
             );
             return;
         }

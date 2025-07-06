@@ -65,6 +65,15 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                     accept="text/csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                     required
                 />
+                <p>
+                    Bitte wählen Sie eine Datei mit den Entlastungsstunden aus
+                    (Arbeitszeit der Lehrpersonen pro Woche).
+                    <span class="text-error"
+                        >Achtung: Die Datei muss vom Typ <code
+                            class="text-primary">"Stundenplan / Werte"</code
+                        > und nicht Unterricht / Werte o.Ä. sein.</span
+                    >
+                </p>
             </fieldset>
 
             <fieldset class="fieldset">
@@ -78,6 +87,10 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                     accept="text/csv, .dat"
                     required
                 />
+                <p>
+                    Bitte wählen Sie eine Datei mit den Leistungsdaten aus
+                    (Kursdaten der Schüler:innen pro Jahr).
+                </p>
             </fieldset>
 
             <fieldset class="fieldset">
@@ -91,6 +104,10 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                     accept="text/csv, .dat"
                     required
                 />
+                <p>
+                    Bitte wählen Sie eine Datei mit den Teilleistungen aus
+                    (Kursdaten der Schüler:innen pro Klausur).
+                </p>
             </fieldset>
 
             <button
@@ -105,27 +122,27 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
 <script>
     import { parse } from "date-fns";
-    import { formatDateToDDMMYYYY, pb } from "@src/pocketbase";
     import { toast } from "@src/toast";
+    import { Collections } from "@src/pocketbase-types";
+    import { pb } from "@src/pocketbase";
 
     const form = document.getElementById("frm") as HTMLFormElement;
-    const submitBtn = form.querySelector("button") as HTMLButtonElement;
     const yearInput = document.getElementById("year") as HTMLInputElement;
     const splitDateInput = document.getElementById(
-        "splitDate",
+        "splitDate"
     ) as HTMLInputElement;
     const semesterInput = document.getElementById(
-        "semester",
+        "semester"
     ) as HTMLSelectElement;
 
-    const file_entlastung = document.getElementById(
-        "file_entlastung",
+    const file_entlastung_inpt = document.getElementById(
+        "file_entlastung"
     ) as HTMLInputElement;
-    const file_leistung = document.getElementById(
-        "file_leistung",
+    const file_leistung_inpt = document.getElementById(
+        "file_leistung"
     ) as HTMLInputElement;
-    const file_teilleistung = document.getElementById(
-        "file_teilleistung",
+    const file_teilleistung_inpt = document.getElementById(
+        "file_teilleistung"
     ) as HTMLInputElement;
 
     function validate() {
@@ -139,24 +156,25 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         if (isNaN(splitDate.getTime())) {
             toast("error", "Das Datum ist ungültig");
             return false;
-        } else {
-            if (
-                splitDate.getFullYear() < year ||
-                splitDate.getFullYear() > year + 1
-            ) {
-                toast(
-                    "error",
-                    `Das Datum muss zwischen ${year} und ${year + 1} liegen.`,
-                );
-                return false;
-            }
-            if (splitDate.getDay() !== 1) {
-                toast(
-                    "error",
-                    "Das Datum muss ein Montag sein. Bitte überprüfen Sie ihre Eingabe.",
-                );
-                return false;
-            }
+        }
+
+        if (
+            splitDate.getFullYear() < year ||
+            splitDate.getFullYear() > year + 1
+        ) {
+            toast(
+                "error",
+                `Das Datum muss zwischen ${year} und ${year + 1} liegen.`
+            );
+            return false;
+        }
+
+        if (splitDate.getDay() !== 1) {
+            toast(
+                "error",
+                "Das Datum muss ein Montag sein. Bitte überprüfen Sie ihre Eingabe."
+            );
+            return false;
         }
 
         const semester = parseInt(semesterInput.value);
@@ -165,26 +183,26 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             return false;
         }
 
-        if (file_entlastung?.files?.length === 0) {
+        if (file_entlastung_inpt?.files?.length === 0) {
             toast(
                 "error",
-                "Bitte wählen Sie eine Datei für die Entlastungsstunden aus",
+                "Bitte wählen Sie eine Datei für die Entlastungsstunden aus"
             );
             return false;
         }
 
-        if (file_leistung?.files?.length === 0) {
+        if (file_leistung_inpt?.files?.length === 0) {
             toast(
                 "error",
-                "Bitte wählen Sie eine Datei für die Leistungsdaten aus",
+                "Bitte wählen Sie eine Datei für die Leistungsdaten aus"
             );
             return false;
         }
 
-        if (file_teilleistung?.files?.length === 0) {
+        if (file_teilleistung_inpt?.files?.length === 0) {
             toast(
                 "error",
-                "Bitte wählen Sie eine Datei für die Teilleistungen aus",
+                "Bitte wählen Sie eine Datei für die Teilleistungen aus"
             );
             return false;
         }
@@ -204,25 +222,54 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         const year = parseInt(yearInput.value);
         const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
         const semester = parseInt(semesterInput.value);
-        const file = (file_entlastung.files as FileList)[0];
+        const entlastung_file = (file_entlastung_inpt.files as FileList)[0];
+        const leistung_file = (file_leistung_inpt.files as FileList)[0];
+        const teilleistung_file = (file_teilleistung_inpt.files as FileList)[0];
 
-        const data = {
+        const batch = pb.createBatch();
+
+        batch.collection(Collections.Files).create({
+            file: entlastung_file,
+            year: year,
+            semester: semester,
+            type: "hours",
+        });
+
+        batch.collection(Collections.Files).create({
+            file: leistung_file,
+            year: year,
+            semester: semester,
+            type: "course",
+        });
+
+        batch.collection(Collections.Files).create({
+            file: teilleistung_file,
+            year: year,
+            semester: semester,
+            type: "exam",
+        });
+
+        batch.collection(Collections.Years).create({
             start_year: year,
             semester: semester,
-            file: file,
             state: "uploaded",
             split: splitDate,
-        };
+        });
 
         try {
-            await pb.collection("years").create(data);
-            window.location.href = `/admin/data/new2/?year=${year}&semester=${semester}&split_date=${formatDateToDDMMYYYY(splitDate)}`;
+            const results = await batch.send();
+            const all_ok = results.every((result) => result.status === 200);
+            if (!all_ok) {
+                throw new Error("Batch upload failed");
+            }
+
+            window.location.href = "/admin/data/";
         } catch (e: any) {
             console.error(e);
             const yearStr = `${year}/${(year + 1).toString().substring(2)}`;
             toast(
                 "error",
-                `Fehler beim Erstellen des Halbjahresabschlusses für ${yearStr} ${semester}. Halbjahr. </br> Bitte überprüfen Sie ihre Eingabe.`,
+                `Fehler beim Erstellen des Halbjahresabschlusses für ${yearStr} ${semester}. Halbjahr. </br> Bitte überprüfen Sie ihre Eingabe.`
             );
         }
     }

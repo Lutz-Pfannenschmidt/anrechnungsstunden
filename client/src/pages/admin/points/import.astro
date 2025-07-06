@@ -1,0 +1,147 @@
+---
+import DefaultLayout from "@src/layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Punkteverwaltung">
+    <h1 class="text-4xl text-center font-bold">
+        Punkteverwaltung | Excel Import
+    </h1>
+
+    <div class="flex flex-col justify-center items-center">
+        <form id="create-frm" class="flex flex-col gap-4 items-center">
+            <p class="text-alert text-center w-full">
+                Importieren sie Klausurpunkte pro Klausur in folgendem Format:
+                <img
+                    src="/part_points.png"
+                    alt="Bild zur Darstellung des Formates."
+                />
+                Die Tabelle kan in einer Beliebigen ZEILE beginnen, diese muss jedoch
+                in der ersten Spalte das Wort <code class="text-primary"
+                    >Kürzel</code
+                > enthalten. <br />
+                Die Zeile "TABELLE" wird nicht verwendet. <br /><br />
+                <span class="text-error"
+                    >Der Import überschreibt bereits bestehende Einträge NICHT.</span
+                >
+            </p>
+
+            <fieldset class="fieldset">
+                <legend class="fieldset-legend">Excel Datei</legend>
+                <input
+                    type="file"
+                    id="fileInput"
+                    class="file-input file-input-bordered file-input-xl validator w-full max-w-xl"
+                />
+            </fieldset>
+
+            <button id="importButton" class="btn btn-success w-full max-w-xl">
+                Importieren
+            </button>
+        </form>
+    </div>
+</DefaultLayout>
+
+<script>
+    import { pb } from "@src/pocketbase";
+    import { Collections } from "@src/pocketbase-types";
+    import { toast } from "@src/toast";
+    import readXlsxFile from "read-excel-file";
+
+    const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+    const importButton = document.getElementById(
+        "importButton"
+    ) as HTMLButtonElement;
+
+    importButton.addEventListener("click", async (e: Event) => {
+        e.preventDefault();
+        if (!fileInput.files || fileInput.files.length === 0) {
+            toast("info", "Bitte wählen Sie eine Datei aus.");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const rows = await readXlsxFile(file);
+
+        let found = false;
+        let classNames = new Array<string>();
+        let batch = pb.createBatch();
+        for (const row of rows) {
+            if (row.length < 1) {
+                continue;
+            }
+            if (row[0] === "Kürzel" && !found) {
+                found = true;
+                classNames = row.slice(1).map(String);
+                continue;
+            }
+            if (!found) {
+                continue;
+            }
+
+            let grades = [];
+            for (const part of row[0].toString().split(",")) {
+                const grade = part.replaceAll("Klasse", "").trim();
+                if (grade === "") {
+                    continue;
+                }
+                grades.push(grade);
+            }
+
+            let points = new Array<Number>();
+            for (let i = 1; i < row.length; i++) {
+                const cell = row[i];
+                if (typeof cell === "number") {
+                    points.push(cell);
+                } else if (typeof cell === "string") {
+                    const value = cell;
+                    const point = parseFloat(
+                        typeof value === "string" ? value.replace(",", ".") : ""
+                    );
+                    if (!isNaN(point)) {
+                        points.push(point);
+                    } else {
+                        points.push(0);
+                    }
+                } else {
+                    points.push(0);
+                }
+            }
+
+            const maxLen = Math.min(classNames.length, points.length);
+
+            for (const grade of grades) {
+                for (let i = 0; i < maxLen; i++) {
+                    const className = classNames[i];
+                    const point = points[i];
+
+                    if (
+                        point === undefined ||
+                        className === undefined ||
+                        className === "" ||
+                        point == 0
+                    ) {
+                        continue;
+                    }
+                    batch.collection(Collections.PartPoints).create({
+                        grade: grade,
+                        class: className,
+                        points: point,
+                    });
+                }
+            }
+        }
+        try {
+            await batch.send();
+        } catch {
+            toast(
+                "error",
+                "Fehler beim Importieren der Daten. Eventuell sind nicht alle Daten einzigartig. Sollten bereits Daten für z.B. 'D' in '05' existieren, wird der Import fehlschlagen."
+            );
+            return;
+        }
+        toast("success", "Daten erfolgreich importiert.");
+        setTimeout(() => {
+            window.location.href = "/admin/points/";
+        }, 1000);
+    });
+</script>

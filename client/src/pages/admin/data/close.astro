@@ -11,15 +11,16 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         <thead>
             <tr>
                 <th>Lehrer:in</th>
-                <th class="grow">Status</th>
-                <th></th>
+                <th class="grow">Durchsch. Stunden pro Woche</th>
+                <th class="grow">Klassenleitung in %</th>
+                <th class="grow">Zusatzpunkte (z.B. für Mündl. Prüfungen)</th>
+                <th>Aus diesem Abschluss entfernen</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
     <div class="flex justify-center">
-        <button id="submit" class="btn btn-wide btn-warning" disabled
-            >Abschließen</button
+        <button id="submit" class="btn btn-wide btn-warning">Abschließen</button
         >
     </div>
 </DefaultLayout>
@@ -27,278 +28,169 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 <script>
     import {
         Collections,
-        type TasksResponse,
         type TeacherDataResponse,
         type UsersResponse,
+        type YearsRecord,
+        YearsStateOptions,
     } from "@src/pocketbase-types";
-    import type { ListResult } from "pocketbase";
-    import Swal from "sweetalert2";
-    import { impersonate, pb, putResults } from "@src/pocketbase";
-    import { toast } from "@src/toast";
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const year = urlParams.get("year");
-    const semester = urlParams.get("semester");
-
+    import { pb } from "@src/pocketbase";
+    import { customAlert, customPrompt, toast } from "@src/toast";
     const table = document.getElementById("users") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
     const submit = document.getElementById("submit") as HTMLButtonElement;
 
-    if (!year || !semester) {
-        window.location.href = "/admin/data";
+    const urlParams = new URLSearchParams(window.location.search);
+    const yID = urlParams.get("id") || "";
+    let year: YearsRecord;
+    try {
+        year = await pb.collection(Collections.Years).getOne(yID);
+    } catch {
+        window.location.href = "/admin/data/";
+        year = {} as YearsRecord;
     }
 
-    const year_data = await pb
-        .collection("years")
-        .getFirstListItem(`start_year="${year}"&&semester="${semester}"`);
-    if (!year_data || year_data.state !== "open") {
-        window.location.href = "/admin/data";
+    if (!year || year.state !== YearsStateOptions.open) {
+        window.location.href = "/admin/data/";
     }
 
-    type Expand = { user: UsersResponse };
-    let tasks = await pb
-        .collection("tasks")
-        .getFullList<TasksResponse<Expand>>({
-            expand: "user",
-            filter: `year=${year} && semester=${semester}`,
-        });
+    type Expand = {
+        user: UsersResponse;
+    };
+    let teacher_data: TeacherDataResponse<Expand>[];
+    try {
+        teacher_data = await pb
+            .collection(Collections.TeacherData)
+            .getFullList<
+                TeacherDataResponse<Expand>
+            >({ filter: `semester="${yID}"`, expand: "user" });
+    } catch {
+        window.location.href = "/admin/data/";
+        teacher_data = [];
+    }
 
-    let teacher_data: { [key: string]: ListResult<TeacherDataResponse> } = {};
+    teacher_data.forEach((td_row) => {
+        const row = document.createElement("tr");
 
-    const exam_points = await pb
-        .collection(Collections.ExamPoints)
-        .getFullList();
+        const className = td_row.expand.user.name.includes("_NAME_COLLISION_")
+            ? "text-warning"
+            : "";
 
-    let users_done = true;
-    let requests = tasks.length;
-    for (let i = 0; i < tasks.length; i++) {
-        const row = tasks[i];
-
-        const name = row.expand!.user.name;
-        const short = row.expand!.user.short;
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${row.expand!.user.name}</td>
+        row.innerHTML = `
+            <td class="${className}" >${td_row.expand.user.name.split("_NAME_COLLISION_")[0]} (${td_row.expand.user.short.toUpperCase()})</td>
+            <td class="grow">${td_row.avg_time.toFixed(3)}</td>
+            <td class="grow"><input type="number" data-name="class_lead" class="input input-sm" value="${td_row.class_lead.toFixed(3)}" /></td>
+            <td class="grow"><input type="number" data-name="add_points" class="input input-sm" value="${td_row.add_points.toFixed(3)}" /></td>
+            <td>
+                <button data-rem-id="${td_row.id}" class="btn btn-sm btn-error">Entfernen</button>
+            </td>
         `;
 
-        if (name.includes("_NAME_COLLISION_")) {
-            tr.innerHTML = `
-                <td>${name.split("_NAME_COLLISION_")[0]} (${short})</td>
-            `;
-        }
-
-        const statusCol = document.createElement("td");
-        const status = document.createElement("div");
-        status.classList.add(
-            "status",
-            "status-error",
-            "status-success",
-            "mr-2",
-        );
-        statusCol.appendChild(status);
-        const statusText = document.createElement("span");
-        statusText.textContent = "Lädt...";
-        statusCol.appendChild(statusText);
-        tr.appendChild(statusCol);
-
-        const impersonateCol = document.createElement("td");
-        const impLink = document.createElement("a");
-        impLink.href = "#";
-        impLink.classList.add("btn", "btn-success", "btn-sm");
-        impLink.textContent = "Diese Person Imitieren";
-        impLink.onclick = async () => {
-            const ok = await impersonate(row.expand!.user.id);
-            if (ok) {
-                window.location.href = "/";
-            }
-        };
-        impersonateCol.appendChild(impLink);
-        tr.appendChild(impersonateCol);
-
-        (async () => {
-            const data = await pb.collection("teacher_data").getList(1, 50, {
-                filter: `year="${year}" && semester="${semester}" && teacher="${row.user}"`,
-                expand: "teacher",
+        row.querySelectorAll("[data-rem-id]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                const id = btn.getAttribute("data-rem-id");
+                if (id) {
+                    await pb.collection(Collections.TeacherData).delete(id);
+                    row.remove();
+                }
             });
-            users_done = users_done && data.items.length > 0;
-            statusText.textContent = `${data.items.length > 0 ? "" : "Nicht "} Abgegeben`;
+        });
 
-            if (data.items.length > 0) {
-                status.classList.remove("status-error");
-            } else {
-                status.classList.remove("status-success");
-            }
+        tbody.appendChild(row);
+    });
 
-            teacher_data[row.user] = data;
-            requests--;
-            if (requests === 0) {
-                submit.disabled = !users_done;
-            }
-        })();
+    submit.addEventListener("click", async (e: Event) => {
+        e.preventDefault();
 
-        tbody.appendChild(tr);
-    }
+        const class_leads = Array.from(
+            document.querySelectorAll(
+                "input[data-name='class_lead']"
+            ) as NodeListOf<HTMLInputElement>
+        ).map((el) => parseFloat(el.value));
 
-    async function onSubmit() {
-        if (!users_done) {
-            toast(
-                "error",
-                "Nicht alle Lehrer:innen haben den Halbjahresabschluss abgegeben.",
+        const add_points = Array.from(
+            document.querySelectorAll(
+                "input[data-name='add_points']"
+            ) as NodeListOf<HTMLInputElement>
+        ).map((el) => parseFloat(el.value));
+
+        if (
+            class_leads.length !== teacher_data.length ||
+            add_points.length !== teacher_data.length
+        ) {
+            customAlert(
+                "Bitte geben Sie für alle Lehrer:innen eine Klassenleitung und Zusatzpunkte an."
             );
             return;
         }
 
-        const res = await Swal.fire({
-            title: "Sind Sie sicher, dass Sie den Halbjahresabschluss abschließen möchten?",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Ja",
-            cancelButtonText: "Nein",
-        });
+        const batch = pb.createBatch();
+        for (let i = 0; i < teacher_data.length; i++) {
+            const td = teacher_data[i];
+            td.class_lead = class_leads[i];
+            td.add_points = add_points[i];
+            batch.collection(Collections.TeacherData).upsert(td);
+        }
 
-        if (!res.isConfirmed) {
+        try {
+            await batch.send();
+        } catch (e) {
+            customAlert("Fehler beim Aktualisieren der Daten: " + e);
             return;
         }
 
-        const { value: amount_str } = await Swal.fire({
-            title: "Wie viele Anrechnungsstunden sollen verteilt werden?",
-            input: "text",
-            inputLabel: "Anrechnungsstunden",
-            inputPlaceholder: "0",
-        });
+        try {
+            year.state = YearsStateOptions.closed;
 
-        const amount = parseInt(amount_str || "0");
-        if (isNaN(amount) || amount <= 0) {
-            toast(
-                "error",
-                "Ungültige Eingabe, Anrechnungsstunden müssen positiv sein.",
+            const mul = await customPrompt(
+                "Faktor für die Berechnung der Stunden pro Woche (z.B. 7,84)",
+                "number",
+                "7,84"
             );
-            return;
-        }
-
-        const { value: lead_points_str } = await Swal.fire({
-            title: "Wie viele Punkte sollen pro Klassenleitung verteilt werden?",
-            input: "text",
-            inputLabel: "Punkte pro Klassenleitung",
-            inputPlaceholder: "0",
-        });
-
-        const lead_points = parseInt(lead_points_str || "0");
-        if (isNaN(lead_points) || lead_points < 0) {
-            toast(
-                "error",
-                "Ungültige Eingabe, Punkte müssen mindestens 0 sein.",
-            );
-            return;
-        }
-
-        const teacher_points = {} as { [key: string]: number };
-
-        for (let i = 0; i < tasks.length; i++) {
-            const row = tasks[i];
-            if (teacher_data[row.user].items.length === 0) {
-                toast(
-                    "error",
-                    "Nicht alle Lehrer:innen haben den Halbjahresabschluss abgegeben.",
-                );
+            const mulFloat = parseFloat(mul || "");
+            if (!mul || isNaN(mulFloat)) {
+                customAlert("Abschluss abgebrochen.");
                 return;
             }
+            year.base_mul = mulFloat;
 
-            let points = getExamPointsForTeacher(row.user);
-            try {
-                const record = await pb
-                    .collection(Collections.ClassLead)
-                    .getFirstListItem(`teacher="${row.user}"`);
-                points += (lead_points * record.percentage) / 100;
-            } catch (e) {}
-
-            try {
-                const record = await pb
-                    .collection(Collections.TimeData)
-                    .getFirstListItem(`user="${row.user}"`);
-                points -= record.avg_time * 7.84;
-            } catch (e) {}
-
-            teacher_points[row.expand!.user.short.toUpperCase()] = Math.max(
-                0,
-                points,
+            const lead = await customPrompt(
+                "Punkte pro 100% Klassenleitung (z.B. 120)",
+                "number",
+                "120"
             );
-        }
+            const leadFloat = parseFloat(lead || "");
+            if (!lead || isNaN(leadFloat)) {
+                customAlert("Abschluss abgebrochen.");
+                return;
+            }
+            year.lead_points = leadFloat;
 
-        Swal.fire({
-            title: "PDFs werden generiert...",
-            icon: "info",
-            showConfirmButton: false,
-        });
+            const total = await customPrompt(
+                "Gesamtanrechnungsstunden (z.B. 26)",
+                "number",
+                "26"
+            );
+            const totalFloat = parseFloat(total || "");
+            if (!total || isNaN(totalFloat)) {
+                customAlert("Abschluss abgebrochen.");
+                return;
+            }
+            year.total_points = totalFloat;
 
-        const record = await putResults(
-            year_data.id,
-            distribute(amount, teacher_points),
-            lead_points,
-        );
-
-        if (record == null) {
+            submit.disabled = true;
             toast(
-                "error",
-                "Fehler beim Abschließen des Halbjahresabschlusses.",
-                "Bitte versuchen Sie es erneut nach einem Neuladen der Seite.",
+                "info",
+                "PDFs werden (im Hintergrund) erstellt.",
+                "Sie können diese Seite verlassen. Wenn sie diese Seite verlassen, werden KEINE Fehler angezeigt, wenn es Probleme gibt."
             );
+            await pb.collection(Collections.Years).update(year.id, year);
+            await customAlert(
+                "Halbjahresabschluss erfolgreich abgeschlossen. PDFs wurden erstellt."
+            );
+            window.location.href = "/admin/data/";
+        } catch (e) {
+            await customAlert("Fehler beim Abschließen des Jahres: " + e);
             return;
         }
-
-        await pb.collection("years").update(year_data.id, {
-            state: "closed",
-        });
-        toast(
-            "success",
-            "Halbjahresabschluss erfolgreich abgeschlossen.",
-            "Sie werden weitergeleitet.",
-        );
-        window.location.href = `/admin/data/closed?year=${year}&semester=${semester}`;
-    }
-
-    function getExamPointsForTeacher(teacher: string) {
-        let points = 0;
-        for (let i = 0; i < teacher_data[teacher].items.length; i++) {
-            const item = teacher_data[teacher].items[i];
-            points +=
-                getExamPointsForSubject(item.subject, item.grade) *
-                item.students;
-        }
-        return points;
-    }
-
-    function getExamPointsForSubject(subject: string, grade: string) {
-        for (let i = 0; i < exam_points.length; i++) {
-            const item = exam_points[i];
-            if (
-                item.subject.toString() === subject.toString() &&
-                item.grade.toString() === grade.toString()
-            ) {
-                return item.points;
-            }
-        }
-        return 0;
-    }
-
-    function distribute(
-        points: number,
-        teacherScores: { [s: string]: number },
-    ) {
-        const res = {} as { [s: string]: number };
-        let d = 0;
-        for (const [teacher, score] of Object.entries(teacherScores)) {
-            d += score;
-            res[teacher] = score;
-        }
-        for (let teacher in res) {
-            res[teacher] *= points / d;
-        }
-        return res;
-    }
-
-    submit.addEventListener("click", onSubmit);
+    });
 </script>

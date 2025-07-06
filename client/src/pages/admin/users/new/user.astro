@@ -80,8 +80,8 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
 <script>
     import { toast } from "@src/toast";
-    import { isValidEmail } from "../../../../email";
-    import { pb } from "../../../../pocketbase";
+    import { isValidEmail } from "@src/email";
+    import { pb } from "@src/pocketbase";
 
     const createFrm = document.getElementById("create-frm") as HTMLFormElement;
     const submitBtn = createFrm.querySelector("button") as HTMLButtonElement;
@@ -97,13 +97,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
             return;
         }
 
-        const pwd = Math.random().toString(36).slice(-8) + "aA1!";
-
         const body = {
-            password: pwd,
-            passwordConfirm: pwd,
-            emailVisibility: true,
-            verified: true,
             email: emailInpt.value,
             name: nameInpt.value,
             short: usernameInpt.value,
@@ -111,17 +105,15 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
         try {
             await pb.collection("users").create(body);
-        } catch (error: any) {
+        } catch {
             toast(
                 "error",
-                "Es existiert bereits ein Benutzer mit diesem Kürzel oder dieser E-Mail-Adresse.",
+                "Es existiert bereits ein Benutzer mit diesem Kürzel oder dieser E-Mail-Adresse."
             );
             return;
         }
 
-        window.location.href = "/admin/users/index.html";
-
-        checkValid();
+        window.location.href = "/admin/users/";
     }
 
     function checkValid() {

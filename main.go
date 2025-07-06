@@ -19,12 +19,11 @@ import (
 func main() {
 	app := pocketbase.New()
 
-	app.OnRecordAfterCreateSuccess("users").BindFunc(onUserCreate)
-	app.OnRecordAfterDeleteSuccess("users").BindFunc(onUserDelete)
-	app.OnRecordAfterUpdateSuccess("users").BindFunc(onUserUpdate)
+	app.OnRecordCreate("users").BindFunc(onUserCreateBefore)
+	app.OnRecordUpdate("users").BindFunc(onUserCreateBefore)
 
-	app.OnRecordAfterCreateSuccess("results").BindFunc(makePdf)
-	app.OnRecordAfterDeleteSuccess("results").BindFunc(onResultsDelete)
+	app.OnRecordAfterDeleteSuccess("years").BindFunc(onYearsDelete)
+	app.OnRecordAfterUpdateSuccess("years").BindFunc(onYearsUpdate)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.POST("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)

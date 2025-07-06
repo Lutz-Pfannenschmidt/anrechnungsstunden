@@ -11,7 +11,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         <thead>
             <tr>
                 <th>Kürzel</th>
-                <th>Nachname o.Ä.</th>
+                <th>(Nach-)Name</th>
                 <th>E-Mail</th>
                 <th>Aktionen</th>
             </tr>
@@ -51,9 +51,10 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 </DefaultLayout>
 
 <script>
-    import { impersonate, pb } from "../../../pocketbase";
+    import { Collections } from "@src/pocketbase-types";
+    import { pb } from "@src/pocketbase";
 
-    const users = await pb.collection("users").getFullList();
+    const users = await pb.collection(Collections.Users).getFullList();
 
     const table = document.getElementById("users") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
@@ -67,17 +68,6 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
         `;
 
         const actionCell = document.createElement("td");
-        const impLink = document.createElement("a");
-        impLink.href = "#";
-        impLink.textContent = "Diese Person imitieren";
-        impLink.classList.add("btn", "btn-sm", "btn-success", "mr-2");
-        impLink.onclick = async () => {
-            const ok = await impersonate(user.id);
-            if (ok) {
-                window.location.href = "/";
-            }
-        };
-        actionCell.appendChild(impLink);
 
         const delLink = document.createElement("a");
         delLink.href = "#";
@@ -97,7 +87,7 @@ import DefaultLayout from "../../../layouts/DefaultLayout.astro";
 
     const adminTable = document.getElementById("admins") as HTMLTableElement;
     const adminTbody = adminTable.querySelector(
-        "tbody",
+        "tbody"
     ) as HTMLTableSectionElement;
 
     for (const user of adminUsers) {

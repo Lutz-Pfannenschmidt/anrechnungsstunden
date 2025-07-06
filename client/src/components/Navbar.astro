@@ -2,10 +2,14 @@
 import Breadcumbs from "./Breadcumbs.astro";
 ---
 
-<nav class="navbar bg-base-100 shadow-sm">
+<nav class="navbar bg-base-100 shadow-sm p-0">
     <div class="navbar-start">
         <a id="home" class="btn btn-ghost text-xl" href="/"
             >Anrechnungsstunden</a
+        >
+        <button
+            class="btn btn-accent btn-outline"
+            onclick="about_modal.showModal()">About</button
         >
     </div>
 
@@ -36,16 +40,20 @@ import Breadcumbs from "./Breadcumbs.astro";
                 </button>
             </li>
             <li>
-                <a href="/" class="btn btn-outline btn-error" id="logout"
-                    >Abmelden</a
+                <a
+                    href="/admin/login"
+                    class="btn btn-outline btn-error"
+                    id="logout">Abmelden</a
                 >
             </li>
         </ul>
 
         <ul id="nav_loggedout" class="menu menu-horizontal px-1 hidden gap-4">
             <li>
-                <a href="/login" class="btn btn-outline btn-success" id="logout"
-                    >Anmelden</a
+                <a
+                    href="/admin/login"
+                    class="btn btn-outline btn-success"
+                    id="logout">Anmelden</a
                 >
             </li>
         </ul>
@@ -55,9 +63,10 @@ import Breadcumbs from "./Breadcumbs.astro";
 <script>
     import { logout } from "../pocketbase";
     const logoutButton = document.getElementById("logout") as HTMLAnchorElement;
-    logoutButton.addEventListener("click", () => {
+    logoutButton.addEventListener("click", (e: Event) => {
+        e.preventDefault();
         logout();
-        window.location.href = "/login";
+        window.location.href = "/admin/login";
     });
 </script>
 

@@ -6,9 +6,6 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     <h1 class="text-4xl font-bold text-center">Halbjahresverwaltung</h1>
 
     <div class="flex justify-center flex-end gap-4">
-        <a href="/admin/data/new" class="w-md btn btn-warning text-center my-2"
-            >Neuen Halbjahresabschluss starten (Alte Ansicht)</a
-        >
         <a
             href="/admin/data/advanced"
             class="w-md btn btn-success text-center my-2"
@@ -40,7 +37,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     import { toast } from "@src/toast";
     import Swal from "sweetalert2";
 
-    const years = await pb.collection(Collections.Years).getFullList();
+    const years = await pb
+        .collection(Collections.Years)
+        .getFullList({ sort: "-updated,id" });
 
     const table = document.getElementById("years_table") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
@@ -58,30 +57,23 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const changeDate = new Date(year.updated);
             const changeStr = changeDate.toLocaleString("de-DE");
 
-            const splitDate = new Date(year.split);
-            const splitStr = splitDate.toLocaleString("de-DE", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-            });
-
-            let link = "/404";
+            let link = "#";
             let text = "Fehler";
             let btnText = "Fehler";
             switch (year.state) {
                 case "uploaded":
-                    link = `/admin/data/new2/?year=${year.start_year}&semester=${year.semester}&split_date=${splitStr}`;
+                    link = `/admin/data/select/?id=${year.id}`;
                     text = "Daten wurden hochgeladen";
                     btnText = "Lehrpersonen auswählen";
                     break;
                 case "open":
-                    link = `/admin/data/close/?year=${year.start_year}&semester=${year.semester}`;
-                    text = "Offen für Einsendungen";
-                    btnText = "Einsendungen einsehen";
+                    link = `/admin/data/close/?id=${year.id}`;
+                    text = "Zu bearbeiten";
+                    btnText = "Daten bearbeiten";
                     break;
                 case "closed":
-                    link = `/admin/data/closed/?year=${year.start_year}&semester=${year.semester}`;
-                    text = "Einsendungen geschlossen";
+                    link = `/admin/data/closed/?id=${year.id}`;
+                    text = "Fertig";
                     btnText = "Ergebnisse anzeigen";
                     break;
             }
@@ -115,7 +107,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const uncompleteBtn = document.createElement("a");
             uncompleteBtn.href = "#";
             uncompleteBtn.classList.add("btn", "btn-warning", "btn-sm", "mr-2");
-            uncompleteBtn.textContent = "Wieder öffnen";
+            uncompleteBtn.textContent = "Wieder bearbeiten";
             const onUncomplete = async () => {
                 const res = await Swal.fire({
                     title: "Wollen Sie den Halbjahresabschluss wirklich wieder öffnen?",
@@ -130,17 +122,10 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                     toast("info", "Wird geöffnet...");
 
                     try {
-                        const record = await pb
-                            .collection(Collections.Results)
-                            .getFirstListItem(
-                                pb.filter("semester={:semester}", {
-                                    semester: year.id,
-                                }),
-                            );
-                        await pb
-                            .collection(Collections.Results)
-                            .delete(record.id);
-                    } catch (e) {
+                        await pb.collection(Collections.Years).update(year.id, {
+                            state: "open",
+                        });
+                    } catch {
                         toast("error", "Fehler beim Öffnen");
                     }
                     toast("success", "Wieder geöffnet");

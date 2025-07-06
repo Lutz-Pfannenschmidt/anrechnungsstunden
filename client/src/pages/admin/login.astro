@@ -34,16 +34,12 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
 
             <button class="btn btn-primary" type="submit">Anmelden</button>
         </form>
-
-        <a href="/" class="opacity-50 underline"
-            >Zurück zur Benutzer Anmeldung</a
-        >
     </div>
 </DefaultLayout>
 
 <script>
     import { toast } from "@src/toast";
-    import { login, logout } from "../../pocketbase";
+    import { login, logout } from "@src/pocketbase";
 
     const loginFrm = document.querySelector("form#login") as HTMLFormElement;
     const unameInpt = loginFrm.querySelector("#username") as HTMLInputElement;
@@ -61,7 +57,7 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
             toast(
                 "error",
                 "Anmeldung fehlgeschlagen",
-                "Benutzername oder Passwort falsch",
+                "Benutzername oder Passwort falsch"
             );
         }
     }

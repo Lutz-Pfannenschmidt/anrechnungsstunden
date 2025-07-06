@@ -1,39 +1,42 @@
-import { isLoggedIn, isSuperuser } from "@src/pocketbase";
-
-const publicPaths = ["/login", "/admin/login"];
+import { isLoggedIn, isSuperuser, pb } from "@src/pocketbase";
 
 function checkRoute(path: string) {
-    if (publicPaths.includes(path)) {
+    if (path === "/login") {
+        if (isLoggedIn() && isSuperuser()) {
+            window.location.href = "/admin";
+            return;
+        }
+        pb.authStore.clear();
+        window.location.href = "/admin/login";
+        return;
+    }
+
+    if (path === "/admin/login") {
         if (isLoggedIn()) {
             if (isSuperuser()) {
                 window.location.href = "/admin";
             } else {
-                window.location.href = "/";
+                pb.authStore.clear();
             }
-            return;
         }
         return;
     }
 
     if (path === "/") {
-        if (isLoggedIn()) {
-            if (isSuperuser()) {
-                window.location.href = "/admin";
-            }
+        if (isLoggedIn() && isSuperuser()) {
+            window.location.href = "/admin";
             return;
         }
-        window.location.href = "/login";
+        pb.authStore.clear();
+        window.location.href = "/admin/login";
         return;
     }
 
     if (path.startsWith("/admin")) {
-        if (isLoggedIn()) {
-            if (isSuperuser()) {
-                return;
-            }
-            window.location.href = "/";
+        if (isLoggedIn() && isSuperuser()) {
             return;
         }
+        pb.authStore.clear();
         window.location.href = "/admin/login";
         return;
     }

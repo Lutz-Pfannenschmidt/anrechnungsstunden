@@ -7,3 +7,25 @@
     prefix: ;
     logs: true;
 }
+
+/* Applies to Chrome, Edge, and Firefox */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #222;
+    overflow-x: hidden;
+}
+
+/* For Chrome, Edge, and Safari (Webkit browsers) */
+::-webkit-scrollbar {
+    width: 80px;
+    background: #222;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}

@@ -1,33 +1,35 @@
 ---
+import SettingsStat from "@components/SettingsStat.vue";
 import DefaultLayout from "../../layouts/DefaultLayout.astro";
 ---
 
 <DefaultLayout title="Admin Dashboard">
     <h1 class="text-4xl font-bold">Admin Dashboard</h1>
 
+    <SettingsStat client:only="vue" />
+
     <ul class="menu w-md">
         <li><a href="/admin/data">Halbjahresverwaltung</a></li>
         <li><a href="/admin/points">Punkteverwaltung</a></li>
         <li><a href="/admin/users">Benutzerverwaltung</a></li>
-        <li>
-            <details open>
-                <summary class="text-warning">Datenbank</summary>
-                <ul>
-                    <li>
-                        <a target="_blank" href="/_">Datenbank</a>
-                    </li>
-                    <li>
-                        <a target="_blank" href="/_/#/settings"
-                            >Datenbank Einstellungen</a
-                        >
-                    </li>
-                    <li>
-                        <a target="_blank" href="/_/#/settings/mail"
-                            >Email Einstellungen</a
-                        >
-                    </li>
-                </ul>
-            </details>
+        <li id="db-details">
+            <h2 class="menu-title">Datenbank</h2>
+
+            <ul>
+                <li>
+                    <a target="_blank" href="/_">Datenbank</a>
+                </li>
+                <li>
+                    <a target="_blank" href="/_/#/settings"
+                        >Datenbank Einstellungen</a
+                    >
+                </li>
+                <li>
+                    <a target="_blank" href="/_/#/settings/mail"
+                        >Email Einstellungen</a
+                    >
+                </li>
+            </ul>
         </li>
     </ul>
 </DefaultLayout>
@@ -41,3 +43,23 @@ import DefaultLayout from "../../layouts/DefaultLayout.astro";
         font-size: 1.5rem;
     }
 </style>
+
+<script>
+    import { dev, pb } from "@src/pocketbase";
+    const dbDetails = document.getElementById(
+        "db-details"
+    ) as HTMLDetailsElement;
+
+    if (dev) {
+        const links = dbDetails.querySelectorAll("a");
+        links.forEach((link) => {
+            link.setAttribute(
+                "href",
+                pb.baseURL.substring(0, pb.baseURL.length - 1) +
+                    link.getAttribute("href") || ""
+            );
+        });
+    } else {
+        console.log(dbDetails);
+    }
+</script>

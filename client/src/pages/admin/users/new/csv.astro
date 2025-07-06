@@ -39,6 +39,7 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
 <script>
     import { pb } from "@src/pocketbase";
+    import { Collections } from "@src/pocketbase-types";
     import { toast } from "@src/toast";
     import Swal from "sweetalert2";
 
@@ -50,20 +51,6 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
     function validateEmail(email: string): boolean {
         const emailRegex = /^[^\s@]{3,}@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
-    }
-
-    function generatePassword(): string {
-        const allowed =
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:,.<>?";
-
-        const len = 16;
-        let pass = "";
-        for (let i = 0; i < len; i++) {
-            const randIdx = Math.floor(Math.random() * allowed.length);
-            pass += allowed[randIdx];
-        }
-
-        return pass;
     }
 
     function submit(e: SubmitEvent) {
@@ -105,13 +92,13 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                 if (parts.length < 2) {
                     toast(
                         "error",
-                        `Zeile hat nicht genügend von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`,
+                        `Zeile hat nicht genügend von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`
                     );
                     return;
                 } else if (parts.length > 2) {
                     toast(
                         "error",
-                        `Zeile hat zu viele von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`,
+                        `Zeile hat zu viele von Kommas getrennte Werte.\nErwartet: "Name, E-Mail"\nTatsächlich: "${line}"`
                     );
                     return;
                 }
@@ -123,18 +110,14 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
                 if (!validateEmail(email) || !short || short.length < 3) {
                     toast(
                         "error",
-                        `Zeile hat keine valide email addrese: "${email}".`,
+                        `Zeile hat keine valide email addrese: "${email}".`
                     );
                 }
 
-                const pwd = generatePassword() + "aA!";
-
-                batch.collection("users").create({
+                batch.collection(Collections.Users).create({
                     short: short,
                     email: email,
                     name: uname,
-                    password: pwd,
-                    passwordConfirm: pwd,
                 });
             }
 
@@ -145,11 +128,15 @@ import DefaultLayout from "../../../../layouts/DefaultLayout.astro";
 
             try {
                 await batch.send();
-                toast("error", "Lehrpersonen erfolgreich importiert.");
-                window.location.href = "/admin/users";
-            } catch (error: any) {
-                toast("error", "Fehler beim Importieren der Lehrpersonen.");
-                window.location.reload();
+                toast("success", "Lehrpersonen erfolgreich importiert.");
+                setTimeout(() => {
+                    window.location.href = "/admin/users/";
+                }, 1000);
+            } catch {
+                toast(
+                    "error",
+                    "Fehler beim Importieren der Lehrpersonen. Wahrscheinlich existieren einige Lehrpersonen bereits (E-Mail oder Kürzel bereits vergeben)."
+                );
             }
         };
 

@@ -1,0 +1,602 @@
+---
+import DefaultLayout from "@src/layouts/DefaultLayout.astro";
+---
+
+<DefaultLayout title="Halbjahresverwaltung">
+    <h1 class="text-4xl font-bold text-center">
+        Halbjahresabschluss Schritt 2
+    </h1>
+    <p id="date" class="text-center"></p>
+    <h2 class="text-center">
+        Bitte alle Lehrpersonen anklicken, die berücksichtigt werden sollen.
+    </h2>
+
+    <table id="data" class="table table-zebra">
+        <thead>
+            <tr>
+                <th class="text-right" id="select_all">
+                    <div
+                        class="tooltip tooltip-open lg:tooltip-left tooltip-info"
+                        data-tip="Alle auswählen"
+                    >
+                        <label>
+                            <input type="checkbox" class="checkbox" />
+                        </label>
+                    </div>
+                </th>
+                <th>Lehrer:in</th>
+                <th>Durchschnittliche Stunden / Woche</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="hero">
+        <button type="submit" id="submit" class="btn btn-wide btn-success"
+            >Weiter</button
+        >
+    </div>
+
+    <dialog id="user_popover" class="modal w-screen min-h-screen">
+        <div class="modal-box min-w-11/12 min-h-11/12 flex flex-col gap-4">
+            <h3 class="text-xl font-bold">Benutzerzuweisung</h3>
+            <p>
+                Bitte tragen Sie die E-Mail-Adressen und Kürzel der Lehrpersonen
+                ein. <br /> Für bereits existierende Nutzer werden die Felder automatisch
+                gefüllt. <br /> Sollte ein manuell eingegebenes Kürzel bereits existieren,
+                wird die E-Mail-Adresse automatisch eingetragen. <br /> Sollte für
+                ein Kürzel keine E-Mail-Adresse eingetragen werden, wird die E-Mail-Adresse
+                aus der eingegebenen Domain und dem Kürzel generiert. <br /> Diese
+                kann manuell bearbeitet werden, falls sie nicht korrekt ist.
+            </p>
+
+            <label class="floating-label">
+                <span>Domain</span>
+                <label class="input input-xl w-full">
+                    <input
+                        id="domain"
+                        type="text"
+                        class="grow"
+                        required
+                        placeholder="Domain"
+                    />
+                    <span class="badge badge-neutral text-xs">Optional</span>
+                </label>
+            </label>
+
+            <table id="users" class="table table-zebra w-full">
+                <colgroup>
+                    <col span="1" class="min-w-1/5" />
+                    <col span="1" class="min-w-1/5" />
+                    <col span="1" class="min-w-1/5" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Kürzel</th>
+                        <th>E-Mail</th>
+                    </tr>
+                </thead>
+                <tbody> </tbody>
+            </table>
+
+            <p class="text-warning">
+                Durch das Klicken auf "Weiter" wird für Lehrpersonen, die noch
+                kein Konto haben, eines mit den eingegebenen Daten erstellt.
+            </p>
+
+            <p class="text-alert" id="userMsg"></p>
+
+            <div class="grow-1"></div>
+            <div class="modal-action flex-col md:flex-row gap-4">
+                <form method="dialog ">
+                    <button class="btn btn-lg btn-error w-full md:w-auto"
+                        >Abbrechen</button
+                    >
+                    <button
+                        id="confirm_users"
+                        class="btn btn-lg btn-success w-full md:w-auto"
+                        >Weiter</button
+                    >
+                </form>
+            </div>
+        </div>
+    </dialog>
+</DefaultLayout>
+
+<script>
+    import { pb } from "@src/pocketbase";
+    import {
+        Collections,
+        type UsersRecord,
+        type UsersResponse,
+        type YearsRecord,
+    } from "@src/pocketbase-types";
+    import { toast } from "@src/toast";
+    import { format, parseISO } from "date-fns";
+
+    const table = document.getElementById("data") as HTMLTableElement;
+    const selectAll = table.querySelector(
+        "#select_all"
+    ) as HTMLTableCellElement;
+    const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
+    const submitBtn = document.getElementById("submit") as HTMLButtonElement;
+
+    const user_popover = document.getElementById(
+        "user_popover"
+    ) as HTMLDialogElement;
+    const domainInput = user_popover.querySelector(
+        "#domain"
+    ) as HTMLInputElement;
+    const confirmBtn = user_popover.querySelector(
+        "#confirm_users"
+    ) as HTMLButtonElement;
+    const userMsg = user_popover.querySelector(
+        "#userMsg"
+    ) as HTMLParagraphElement;
+
+    selectAll.querySelector("input")!.checked = false;
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const yID = urlParams.get("id") || "";
+    let year: YearsRecord;
+    try {
+        year = await pb.collection(Collections.Years).getOne(yID);
+    } catch {
+        window.location.href = "/admin/data/";
+        year = {} as YearsRecord;
+    }
+
+    const split_date = parseISO(year.split);
+
+    const date_str = format(split_date, "dd.MM.yyyy");
+
+    if (
+        isNaN(year.start_year) ||
+        isNaN(year.semester) ||
+        year.semester < 1 ||
+        year.semester > 2 ||
+        !year.split ||
+        !split_date ||
+        !date_str
+    ) {
+        window.location.href = "/admin/data/";
+    }
+
+    const yearStr = `${year.start_year}/${(year.start_year + 1).toString().substring(2)}`;
+    const semStr = `${year.semester}. Halbjahr`;
+
+    document.getElementById("date")!.textContent = `${yearStr}, ${semStr}`;
+
+    if (!year || year.state !== "uploaded") {
+        window.location.href = "/admin/data/";
+    }
+
+    type ParseResult = {
+        result: { [key: string]: number };
+        name_collisions: { [key: string]: string[] };
+    };
+
+    let data: ParseResult = {
+        result: {},
+        name_collisions: {},
+    };
+
+    try {
+        const query = {
+            year: year.start_year,
+            semester: year.semester,
+            split_date: date_str,
+        };
+
+        data = await pb.send("/parse/", {
+            method: "POST",
+            body: query,
+        });
+    } catch (e) {
+        console.error(e);
+        toast(
+            "error",
+            `Fehler beim Abrufen der Daten. Bitte versuchen Sie es später erneut.`
+        );
+    }
+
+    const sortedData = Object.fromEntries(
+        Object.entries(data.result)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+            .map(([key, value]) => [key, value])
+    );
+
+    for (const key in sortedData) {
+        const tr = document.createElement("tr");
+        tr.dataset.name = key;
+
+        let parts = (sortedData[key].toFixed(3).toString() + ".").split(".");
+        let floatStr = `${parts[0].padStart(2, "0")}.${parts[1].padEnd(3, "0")}`;
+
+        let nameTd = document.createElement("td");
+        nameTd.textContent = key.split("_NAME_COLLISION_")[0];
+        if (key.includes("_NAME_COLLISION_")) {
+            nameTd.classList.add("text-warning");
+        }
+
+        tr.innerHTML = `
+            <td class="text-right">
+                <label>
+                    <input type="checkbox" class="checkbox" />
+                </label>
+            </td>
+            ${nameTd.outerHTML}
+            <td>${floatStr}</td>
+        `;
+        tr.addEventListener("click", (e: MouseEvent) => {
+            if (user_popover.open) {
+                return;
+            }
+
+            const checkbox = tr.querySelector(
+                "input[type=checkbox]"
+            ) as HTMLInputElement;
+
+            if (e.target === checkbox) {
+                return;
+            }
+
+            checkbox.checked = !checkbox.checked;
+        });
+
+        tbody.appendChild(tr);
+    }
+
+    selectAll.querySelector("input")!.checked = false;
+
+    function selectAllCheckboxes(e: Event) {
+        const checkbox = e.target as HTMLInputElement;
+        const rows = tbody.querySelectorAll("tr");
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const checkBox = row.querySelector(
+                "input[type=checkbox]"
+            ) as HTMLInputElement;
+            checkBox.checked = checkbox.checked;
+        }
+    }
+
+    function submitSelect() {
+        const rows = tbody.querySelectorAll("tr");
+        const selected: string[] = [];
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const name = row.dataset.name as string;
+            const checked = (
+                row.querySelector("input[type=checkbox]") as HTMLInputElement
+            ).checked;
+
+            if (checked) {
+                selected.push(name);
+            }
+        }
+
+        if (selected.length === 0) {
+            toast("error", "Bitte wählen Sie mindestens eine Lehrperson aus.");
+            return;
+        }
+
+        populatePopover(selected);
+        user_popover.showModal();
+    }
+
+    function populatePopover(selected: string[]) {
+        const users = user_popover.querySelector(
+            "tbody"
+        ) as HTMLTableSectionElement;
+        users.innerHTML = "";
+
+        for (const key of selected) {
+            const tr = document.createElement("tr");
+            tr.dataset.name = key;
+
+            const name = document.createElement("td");
+            name.textContent = key;
+            if (key.includes("_NAME_COLLISION_")) {
+                name.textContent =
+                    key.split("_NAME_COLLISION_")[0] +
+                    ` (~${sortedData[key].toFixed(2)}h)`;
+                name.classList.add("text-warning");
+            }
+            tr.appendChild(name);
+
+            const short = document.createElement("td");
+            const shortInput = document.createElement("input");
+            shortInput.setAttribute("type", "text");
+            shortInput.dataset.name = "short";
+            shortInput.setAttribute("required", "true");
+            shortInput.classList.add("input", "input-sm", "w-full");
+            short.appendChild(shortInput);
+            tr.appendChild(short);
+
+            const email = document.createElement("td");
+            const emailInput = document.createElement("input");
+            emailInput.setAttribute("type", "email");
+            emailInput.dataset.name = "email";
+            emailInput.setAttribute("required", "true");
+            emailInput.classList.add("input", "input-sm", "w-full");
+            email.appendChild(emailInput);
+
+            emailInput.addEventListener("input", () => {
+                if (emailInput.value === "") {
+                    emailInput.value = `${shortInput.value}@${domainInput.value}`;
+                }
+            });
+
+            tr.appendChild(email);
+
+            async function tryNameExists(name: string) {
+                if (name.includes("_NAME_COLLISION_")) {
+                    return;
+                }
+                let record: UsersResponse | undefined = undefined;
+                try {
+                    const records = await pb
+                        .collection(Collections.Users)
+                        .getFullList({
+                            filter: filterForName(name),
+                        });
+                    if (records.length == 1) {
+                        record = records[0];
+                    } else if (records.length > 1) {
+                        record = records.find(
+                            (r) => r.name.toLowerCase() === name.toLowerCase()
+                        );
+                    }
+                } catch {}
+
+                if (!record) {
+                    return;
+                }
+                tr.dataset.id = record.id;
+
+                emailInput.disabled = true;
+                shortInput.disabled = true;
+
+                emailInput.value = record.email;
+                shortInput.value = record.short.toUpperCase();
+            }
+
+            tryNameExists(key);
+
+            async function tryShortExists(short: string) {
+                try {
+                    const record = await pb
+                        .collection("users")
+                        .getFirstListItem(`short="${short.toLowerCase()}"`);
+
+                    emailInput.disabled = true;
+                    emailInput.value = record.email;
+                    tr.dataset.id = record.id;
+                } catch {}
+            }
+
+            let timeoutID: number;
+
+            shortInput.addEventListener("input", () => {
+                shortInput.value = shortInput.value.toUpperCase();
+                emailInput.disabled = false;
+                clearTimeout(timeoutID);
+                if (shortInput.value.length < 3) {
+                    emailInput.value = "";
+                    return;
+                } else {
+                    emailInput.value = `${shortInput.value}@${domainInput.value}`;
+                }
+
+                if (timeoutID === undefined) {
+                    tryShortExists(shortInput.value);
+                    return;
+                }
+                timeoutID = window.setTimeout(() => {
+                    tryShortExists(shortInput.value);
+                }, 500);
+            });
+
+            users.appendChild(tr);
+        }
+    }
+
+    async function submitCreate(e: Event) {
+        e.preventDefault();
+        user_popover.close();
+        confirmBtn.disabled = true;
+        const rows = user_popover
+            .querySelector("tbody")!
+            .querySelectorAll("tr");
+        const users: { [key: string]: string[] } = {};
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const name = row.dataset.name as string;
+
+            if (name == null) {
+                confirmBtn.disabled = false;
+                toast(
+                    "error",
+                    "Fehler beim Erstellen der Benutzer. Name ist nicht gesetzt. Bitte laden Sie die Seite neu und versuchen Sie es erneut."
+                );
+                return;
+            }
+
+            const shortInput = row.querySelector(
+                "input[data-name=short]"
+            ) as HTMLInputElement;
+            const short = shortInput.value;
+
+            let emailInput = row.querySelector(
+                "input[data-name=email]"
+            ) as HTMLInputElement;
+            let email = emailInput.value || `${short}@${domainInput.value}`;
+
+            if (!email.includes("@")) {
+                email = `${email}@${domainInput.value}`;
+            }
+
+            let valid = true;
+            userMsg.textContent = "";
+            if (short.length < 3) {
+                userMsg.textContent =
+                    "Kürzel muss mindestens 3 Zeichen lang sein.";
+                valid = false;
+            }
+
+            if (email.length < 5) {
+                userMsg.textContent =
+                    "E-Mail-Adresse muss mindestens 5 Zeichen lang sein.";
+                valid = false;
+            }
+
+            if (!valid) {
+                confirmBtn.disabled = false;
+                return;
+            }
+
+            const id = row.dataset.id || "";
+
+            users[name] = [short, email, id];
+        }
+
+        let batch = pb.createBatch();
+        for (const key in users) {
+            const [short, email, id] = users[key];
+
+            let obj = {
+                email: email,
+                name: key,
+                short: short.toUpperCase(),
+            } as UsersRecord;
+
+            if (id && id.length > 0) {
+                obj["id"] = id;
+            } else {
+                try {
+                    const record = await pb
+                        .collection(Collections.Users)
+                        .getFirstListItem(
+                            `short:lower="${short.toLowerCase()}||email:lower="${email.toLowerCase()}"`
+                        );
+                    obj["id"] = record.id;
+                } catch {}
+            }
+
+            batch.collection(Collections.Users).upsert(obj);
+        }
+
+        try {
+            await batch.send();
+        } catch {
+            toast("error", "Fehler beim Erstellen der Benutzer.");
+            return;
+        }
+
+        const td_batch = pb.createBatch();
+
+        for (const key in users) {
+            const [short] = users[key];
+            let usr: UsersResponse | undefined = undefined;
+            try {
+                usr = await pb
+                    .collection(Collections.Users)
+                    .getFirstListItem(`short:lower="${short.toLowerCase()}"`);
+            } catch {}
+
+            if (!usr) {
+                toast(
+                    "error",
+                    `Benutzer ${short} konnte nicht gefunden werden. Bitte laden Sie die Seite neu und versuchen Sie es erneut.`
+                );
+                confirmBtn.disabled = false;
+                return;
+            }
+
+            td_batch.collection(Collections.TeacherData).create({
+                user: usr.id,
+                semester: year.id,
+                avg_time: sortedData[key],
+                class_lead: 0,
+            });
+        }
+        try {
+            await td_batch.send();
+        } catch {
+            toast(
+                "error",
+                "Fehler beim Erstellen der Lehrpersonen-Daten. (teacher_data)"
+            );
+            confirmBtn.disabled = false;
+            return;
+        }
+
+        try {
+            await pb.collection(Collections.Years).update(year.id, {
+                state: "open",
+            });
+
+            toast(
+                "success",
+                `Halbjahresabschluss für ${yearStr}, ${semStr} erfolgreich aktualisiert.`
+            );
+
+            setTimeout(() => {
+                window.location.href = "/admin/data/";
+            }, 1000);
+        } catch {
+            toast(
+                "error",
+                `Fehler beim Aktualisieren des Halbjahresabschlusses.`
+            );
+            submitBtn.click();
+            confirmBtn.disabled = false;
+            return;
+        }
+    }
+
+    function replaceUmlaut(str: string) {
+        return str
+            .replace(/ä/g, "ae")
+            .replace(/ö/g, "oe")
+            .replace(/ü/g, "ue")
+            .replace(/ß/g, "ss")
+            .replace(/Ä/g, "Ae")
+            .replace(/Ö/g, "Oe")
+            .replace(/Ü/g, "Ue");
+    }
+
+    function splitAtSpecialChars(str: string): string[] {
+        return str
+            .replace("-", ",")
+            .replace("_", ",")
+            .replace(".", ",")
+            .replace(" ", ",")
+            .replace(";", ",")
+            .replace(":", ",")
+            .split(",");
+    }
+
+    function filterForName(name: string) {
+        let filterParts: string[] = [];
+        const nameParts = splitAtSpecialChars(name);
+
+        for (let i = 0; i < nameParts.length; i++) {
+            const part = nameParts[i].trim();
+            if (part.length > 0) {
+                filterParts.push(`name:lower~"${part.toLowerCase()}"`);
+            }
+        }
+
+        return replaceUmlaut(
+            `name:lower='${name.toLowerCase()}' || (${filterParts.join(" && ")})`
+        );
+    }
+
+    selectAll.addEventListener("click", selectAllCheckboxes);
+    submitBtn.addEventListener("click", submitSelect);
+    confirmBtn.addEventListener("click", submitCreate);
+</script>

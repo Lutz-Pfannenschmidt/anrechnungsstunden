@@ -4,15 +4,25 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
 <DefaultLayout title="Halbjahresverwaltung">
     <div class="flex flex-col gap-4 justify-center items-center h-full w-full">
-        <h1 class="text-4xl font-bold text-center">Abgeschlossenes Jahr</h1>
+        <h1 class="text-4xl font-bold text-center">Abgeschlossenes Halbjahr</h1>
+
+        <h2 class="text-2xl font-bold text-center">
+            <span id="year_str"></span>
+        </h2>
 
         <div id="actions" class="flex flex-row gap-4">
+            <a class="btn w-sm btn-success" target="_blank" id="download_untis"
+                >Untis txt runterladen</a
+            >
             <a class="btn w-sm btn-success" target="_blank" id="open_pdf"
                 >PDF Öffnen</a
             >
-            <button class="btn w-sm btn-success" id="send_pdfs"
-                >PDFs per Email verteilen</button
-            >
+
+            <div id="pdf_tool" class="tooltip tooltip-primary">
+                <button class="btn w-sm btn-warning" id="send_pdfs"
+                    >PDFs per Email verteilen</button
+                >
+            </div>
         </div>
 
         <table id="hours" class="table table-zebra">
@@ -24,50 +34,45 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             </thead>
             <tbody></tbody>
         </table>
-
-        <div id="wrapper" class="grow w-full">
-            <textarea name="out" id="out" class="w-full h-full" readonly
-            ></textarea>
-        </div>
     </div>
 </DefaultLayout>
 
 <script>
-    import type {
-        AcronymsResponse,
-        ResultsResponse,
-        UsersResponse,
-    } from "@src/pocketbase-types";
+    import type { ResultsResponse } from "@src/pocketbase-types";
     import { pb } from "@src/pocketbase";
     import { toast } from "@src/toast";
     import { Collections } from "@src/pocketbase-types";
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const year = urlParams.get("year");
-    const semester = urlParams.get("semester");
-
-    if (!year || !semester) {
-        window.location.href = "/admin/data/";
-    }
+    const yearStr = document.getElementById("year_str") as HTMLSpanElement;
 
     const table = document.getElementById("hours") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
 
-    const out = document.getElementById("out") as HTMLTextAreaElement;
-
+    const download_untis = document.getElementById(
+        "download_untis"
+    ) as HTMLAnchorElement;
     const open_pdf = document.getElementById("open_pdf") as HTMLAnchorElement;
     const send_pdfs = document.getElementById("send_pdfs") as HTMLButtonElement;
+    const pdf_tool = document.getElementById("pdf_tool") as HTMLDivElement;
 
-    const sem = await pb
-        .collection("years")
-        .getFirstListItem(`start_year=${year}&&semester=${semester}`);
+    const urlParams = new URLSearchParams(window.location.search);
+    const yearID = urlParams.get("id") || "";
+
+    if (!yearID) {
+        toast("error", "Kein Jahr angegeben");
+        window.location.href = "/admin/data/";
+    }
+
+    const sem = await pb.collection(Collections.Years).getOne(yearID);
     const record = await pb
         .collection(Collections.Results)
         .getFirstListItem<
             ResultsResponse<{ [key: string]: number }>
         >(`semester="${sem.id}"`);
 
-    out.textContent = record.untis;
+    yearStr.textContent = `${sem.start_year}/${(sem.start_year + 1)
+        .toString()
+        .substring(2)} ${sem.semester === 1 ? "1. Halbjahr" : "2. Halbjahr"}`;
 
     async function actions() {
         if (!record) {
@@ -75,17 +80,37 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             return;
         }
         const token = await pb.files.getToken();
-        const url = pb.files.getURL(record, record.pdf, { token });
-        open_pdf.href = url;
+        const pdf_url = pb.files.getURL(record, record.pdf, { token });
+        open_pdf.href = pdf_url;
+
+        const untis_url = pb.files.getURL(record, record.untis, { token });
+        download_untis.href = untis_url;
+
+        const settings = await pb.settings.getAll();
+        if (
+            !settings.smtp.enabled ||
+            settings.smtp.host == "smtp.example.com"
+        ) {
+            send_pdfs.disabled = true;
+            send_pdfs.classList.add("btn-disabled");
+            send_pdfs.title = "E-Mail Versand ist nicht konfiguriert";
+            pdf_tool.classList.add("tooltip-open");
+            pdf_tool.classList.add("tooltip-info");
+            pdf_tool.setAttribute(
+                "data-tip",
+                "E-Mail Versand ist nicht konfiguriert"
+            );
+            return;
+        }
 
         send_pdfs.addEventListener("click", async (e) => {
             e.preventDefault();
             send_pdfs.disabled = true;
             try {
-                const res = await pb.send("/send_pdfs/", {
+                await pb.send("/send_pdfs/", {
                     year: sem.id,
                 });
-            } catch (e) {
+            } catch {
                 toast("error", "Fehler beim Versenden der PDFs");
             }
             toast("success", "PDFs wurden versendet");

@@ -13,6 +13,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         <button id="new_button" class="btn btn-success btn-wide m-8"
             >Neuer Eintrag</button
         >
+        <a href="/admin/points/import" class="btn btn-success btn-wide m-8"
+            >Excel import</a
+        >
     </div>
 
     <table id="points" class="table table-zebra">
@@ -44,7 +47,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                         name="subject"
                         required
                         type="text"
-                        placeholder="Unterricht"
+                        placeholder="Unterricht (D, M, E, ...)"
                         class="input validator w-full"
                     />
                     <span>Unterricht</span>
@@ -56,7 +59,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                         name="grade"
                         required
                         type="text"
-                        placeholder="Stufe"
+                        placeholder="Stufe (5, 6, 7, ..., EF, Q1, Q2)"
                         class="input validator w-full"
                     />
                     <span>Stufe</span>
@@ -68,7 +71,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                         name="points"
                         required
                         type="text"
-                        placeholder="Punkte pro Klausur"
+                        placeholder="Punkte pro Klausur pro Schüler:in"
                         class="input validator w-full"
                     />
                     <span>Punkte pro Klausur</span>
@@ -88,23 +91,24 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 </DefaultLayout>
 
 <script>
-    import { pb, putExamPoints } from "@src/pocketbase";
+    import { pb, putPartPoints } from "@src/pocketbase";
+    import { Collections } from "@src/pocketbase-types";
     import { toast } from "@src/toast";
 
-    let points = await pb.collection("exam_points").getFullList();
+    let points = await pb.collection(Collections.PartPoints).getFullList();
 
     const table = document.getElementById("points") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
     const new_button = document.getElementById(
-        "new_button",
+        "new_button"
     ) as HTMLButtonElement;
     const new_popover = document.getElementById(
-        "new_popover",
+        "new_popover"
     ) as HTMLDialogElement;
     const new_form = document.getElementById("new_form") as HTMLFormElement;
 
-    pb.collection("exam_points").subscribe("*", async function (e) {
-        points = await pb.collection("exam_points").getFullList();
+    pb.collection(Collections.PartPoints).subscribe("*", async function () {
+        points = await pb.collection(Collections.PartPoints).getFullList();
         fillTable();
     });
 
@@ -114,7 +118,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             const tr = document.createElement("tr");
 
             const subject = document.createElement("td");
-            subject.textContent = point.subject;
+            subject.textContent = point.class;
             tr.appendChild(subject);
 
             const grade = document.createElement("td");
@@ -133,7 +137,9 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             delete_button.addEventListener("click", async function (e: Event) {
                 e.preventDefault();
                 try {
-                    await pb.collection("exam_points").delete(point.id);
+                    await pb
+                        .collection(Collections.PartPoints)
+                        .delete(point.id);
                 } catch (e) {
                     console.log(e);
                 }
@@ -145,7 +151,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             edit_button.addEventListener("click", async function (e: Event) {
                 e.preventDefault();
                 new_form.setAttribute("data-id", point.id);
-                new_form.subject.value = point.subject;
+                new_form.subject.value = point.class;
                 new_form.grade.value = point.grade;
                 new_form.points.value = point.points;
                 new_popover.showModal();
@@ -169,8 +175,8 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             .trim()
             .replaceAll(",", ".");
 
-        const id = await putExamPoints(subject, grade, points, row_id);
-        if (!id) {
+        const record = await putPartPoints(subject, grade, points, row_id);
+        if (record === null) {
             toast("error", "Eintrag konnte nicht gespeichert werden.");
             return;
         }

@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"anrechnungsstundenberechner/internal/csv"
+	"anrechnungsstundenberechner/internal/autocsv"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +13,10 @@ const DATE_LAYOUT = "2.1.2006" // DD.MM.YYYY
 type ParseResult struct {
 	Result         map[string][2]float64 `json:"result"`
 	NameCollisions map[string][]string   `json:"name_collisions"`
+}
+
+func isMonday(split time.Time) bool {
+	return split.Weekday() == time.Monday
 }
 
 func parseAndValidateSplitDate(splitDate string) (*time.Time, error) {
@@ -41,14 +45,18 @@ func parseAndValidateSplitDate(splitDate string) (*time.Time, error) {
 }
 
 func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult, err error) {
-	data, err := csv.ReadAnyFileToCSV(path)
+	splitDate, err := parseAndValidateSplitDate(SplitDateStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing split date: %w", err)
+	}
+
+	data, err := autocsv.ReadAnyFileToCSV(path)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
-	splitDate, err := parseAndValidateSplitDate(SplitDateStr)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing split date: %w", err)
+	if !isMonday(*splitDate) {
+		return nil, fmt.Errorf("invalid split date: %s, must be a Monday", splitDate.Format(DATE_LAYOUT))
 	}
 
 	fromDate, _, err := findSchoolYear(data, fromYear)
@@ -61,9 +69,9 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 		NameCollisions: map[string][]string{},
 	}
 
-	parts := strings.Split(data, "Unterricht / Werte")
+	parts := strings.SplitSeq(data, "Stundenplan / Werte")
 
-	for _, part := range parts {
+	for part := range parts {
 		if part == "" {
 			continue
 		}
@@ -73,8 +81,8 @@ func ParseFile(path string, fromYear int, SplitDateStr string) (res *ParseResult
 		foundTable := false
 		yearData := [2][]float64{}
 
-		lines := strings.Split(part, "\n")
-		for _, l := range lines {
+		lines := strings.SplitSeq(part, "\n")
+		for l := range lines {
 			l = strings.TrimSpace(l)
 
 			if strings.HasPrefix(l, "Woche,") {

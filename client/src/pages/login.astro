@@ -1,127 +1,23 @@
 ---
+import Alert from "@components/Alert.vue";
 import DefaultLayout from "../layouts/DefaultLayout.astro";
 ---
 
-<DefaultLayout title="OTP Anmeldung">
-    <div class="grow-1 flex flex-col gap-16 items-center justify-center">
-        <h1 class="text-xl font-bold">Benutzer Anmeldung</h1>
-        <form id="login" class="w-md flex flex-col gap-4">
-            <label class="floating-label">
-                <span>Kürzel</span>
-                <input
-                    id="username"
-                    class="input w-full validator"
-                    placeholder="Kürzel"
-                    type="text"
-                    required
-                    pattern="[A-Za-zäöüÄÖÜß][A-Za-zäöüÄÖÜß+-_]*"
-                    minlength="3"
-                    maxlength="30"
-                    title="Mindestens 3 Zeichen, maximal 30 Zeichen, nur Buchstaben und +-_ erlaubt"
-                />
-                <p class="validator-hint">
-                    Mindestens 3 Zeichen, maximal 30 Zeichen, <br />
-                    nur Buchstaben und +-_ sind erlaubt.
-                </p>
-            </label>
-
-            <button class="btn btn-primary" type="submit">Anmelden</button>
-        </form>
-
-        <a href="/admin/login" class="opacity-50 underline"
-            >Zur Admin Anmeldung</a
-        >
-    </div>
+<DefaultLayout title="Entlastungsberechnung">
+    <Alert
+        type="warning"
+        text="Diese Seite ist veraltet und wird nicht mehr unterstützt. Sie werden abgemeldet."
+    />
 </DefaultLayout>
 
 <script>
-    import type { OTPResponse } from "pocketbase";
-    import Swal from "sweetalert2";
-    import { loginOTP, logout, pb, requestOTP } from "../pocketbase";
-    import { toast } from "../toast";
+    import { pb } from "@src/pocketbase";
+    import { customAlert } from "@src/toast";
 
-    const unameInpt = document.querySelector(
-        "input#username",
-    ) as HTMLInputElement;
-    const loginBtn = document.querySelector(
-        "form#login button",
-    ) as HTMLButtonElement;
-
-    let otp_req: OTPResponse | null = null;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const req_id = urlParams.get("id");
-    const otp = urlParams.get("otp");
-
-    if (req_id && otp) {
-        loginOTP(req_id, otp).then((ok) => {
-            if (ok) {
-                window.location.href = "/";
-            } else {
-                toast("error", "Einmalpasswort falsch oder abgelaufen");
-            }
-        });
-    }
-
-    const popup = Swal.mixin({
-        title: "Einmalpasswort",
-        text: "Ein Einmalpasswort wurde an ihre Email gesendet, bitte geben Sie es hier ein",
-        input: "text",
-        inputPlaceholder: "Einmalpasswort",
-        inputValidator: (value) => {
-            if (!value) {
-                return "Einmalpasswort darf nicht leer sein!";
-            }
-            return null;
-        },
-    });
-
-    async function login(e: Event) {
-        e.preventDefault();
-        let uname = unameInpt.value.toLowerCase();
-        if (uname.indexOf("@") === -1) {
-            try {
-                const data = await pb
-                    .collection("emails")
-                    .getFirstListItem(`acronym="${uname}"`, {});
-
-                if (!data || !data.email) {
-                    toast(
-                        "error",
-                        "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein",
-                    );
-                    return;
-                }
-                uname = data.email;
-            } catch (e) {
-                toast(
-                    "error",
-                    "Kürzel nicht gefunden, bitte geben Sie Ihre E-Mail-Adresse ein",
-                );
-                return;
-            }
-        }
-
-        otp_req = await requestOTP(uname);
-
-        if (!otp_req || !otp_req.otpId) {
-            toast("error", "Kürzel/E-Mail-Adresse nicht gefunden.");
-            return;
-        }
-
-        const result = await popup.fire();
-        if (result.isConfirmed) {
-            const ok = await loginOTP(otp_req.otpId, result.value);
-            if (ok) {
-                window.location.href = "/";
-                return;
-            } else {
-                popup.close();
-                toast("error", "Einmalpasswort falsch oder abgelaufen");
-            }
-        }
-    }
-
-    document.addEventListener("DOMContentLoaded", logout);
-    loginBtn.addEventListener("click", login);
+    window.location.href = "/admin/login";
+    await customAlert(
+        "DEPRECATED | VERALTED",
+        "Diese Seite ist veraltet und wird nicht mehr unterstützt. Sie werden abgemeldet."
+    );
+    await pb.authStore.clear();
 </script>
