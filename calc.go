@@ -27,13 +27,16 @@ func (ep GradeToSubjectToPoints) Set(grade, subject string, points float64) {
 }
 
 func (ep GradeToSubjectToPoints) Get(grade, subject string) (float64, bool) {
+	grade = strings.ToUpper(grade)
+	subject = strings.ToUpper(subject)
+
 	p, ok := ep[grade][subject]
 
 	if ok {
 		return p, ok
 	}
 
-	if strings.HasSuffix(subject, " LK") {
+	if strings.HasSuffix((subject), " LK") {
 		p, ok := ep[grade]["*LK"]
 
 		if ok {
@@ -42,7 +45,7 @@ func (ep GradeToSubjectToPoints) Get(grade, subject string) (float64, bool) {
 		return 0, false
 	}
 
-	if strings.HasSuffix(subject, " GK") {
+	if strings.HasSuffix((subject), " GK") {
 		p, ok := ep[grade]["*GK"]
 
 		if ok {
@@ -117,6 +120,7 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 	}
 
 	examData, err := ReadExamDataFromFile(examFilePath)
+	fmt.Printf("Reading exam data from file %s\n", examFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read exam data (Teilleistungen) from file %s: %w", examFilePath, err)
 	}
@@ -159,7 +163,7 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 	}
 
 	for _, e := range examData {
-		if e.Note == "" || e.Lehrkraft == "" || e.Fach == "" || e.Abschnitt == "" || e.Jahr == year.StartYear || strings.Contains(strings.ToLower(e.Teilleistung), "somi") {
+		if e.Note == "" || e.Lehrkraft == "" || e.Fach == "" || e.Abschnitt == "" || e.Jahr != year.StartYear || strings.Contains(strings.ToLower(e.Teilleistung), "somi") {
 			continue
 		}
 
@@ -169,10 +173,13 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 			continue
 		}
 
+		fmt.Printf("Processing exam entry for %s %s (%s) in %s\n", parts[0], parts[1], e.Fach, e.Abschnitt)
+
 		grade := strings.ToUpper(strings.TrimSpace(parts[1])[:2])
 		subject := strings.ToUpper(strings.TrimSpace(e.Fach))
 
 		mul, _ := examPoints.Get(grade, subject)
+		examsCount := 1
 
 		if grade == "EF" || grade == "Q1" || (grade == "Q2" && year.Semester != 2) {
 			for _, s := range semStuData {
@@ -202,6 +209,7 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 					break
 				}
 			}
+			examsCount = 2 // Q2 in the second semester counts as two exams
 		}
 
 		short := strings.ToUpper(strings.TrimSpace(e.Lehrkraft))
@@ -218,13 +226,13 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		found := false
 		for i, d := range data[uID] {
 			if strings.EqualFold(grade, d.Grade) && strings.EqualFold(subject, d.Subject) && d.Points == mul {
-				data[uID][i].Exams++
+				data[uID][i].Exams += examsCount
 				found = true
 				break
 			}
 		}
 		if !found {
-			data[uID] = append(data[uID], render.RowData{Subject: subject, Grade: grade, Exams: 1, Points: mul})
+			data[uID] = append(data[uID], render.RowData{Subject: subject, Grade: grade, Exams: examsCount, Points: mul})
 		}
 
 		scores[uID] += mul
