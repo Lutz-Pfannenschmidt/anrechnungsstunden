@@ -79,7 +79,7 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 
 	td_records := []TeacherDataRecord{}
 	err = app.DB().
-		Select("teacher_data.id", "semester", "user", "avg_time", "class_lead", "short", "name"). // Include short and name for better usability
+		Select("teacher_data.id", "semester", "user", "avg_time", "class_lead", "add_points", "short", "name"). // Include short and name for better usability
 		From("teacher_data").
 		AndWhere(dbx.NewExp("semester={:semester}", dbx.Params{"semester": yearID})).
 		Join("INNER JOIN", "users", dbx.NewExp("users.id = teacher_data.user")).

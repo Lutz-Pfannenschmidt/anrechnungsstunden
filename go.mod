@@ -3,6 +3,7 @@ module anrechnungsstundenberechner
 go 1.24
 
 require (
+	github.com/andybalholm/crlf v0.0.0-20171020200849-670099aa064f
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/pdfcpu/pdfcpu v0.9.1
 	github.com/pocketbase/dbx v1.11.0

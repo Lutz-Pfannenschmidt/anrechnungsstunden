@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"unicode"
+
+	"github.com/andybalholm/crlf"
 )
 
 // detectDelimiter detects the delimiter in a given string.
@@ -53,6 +55,7 @@ func CSVReader(filename string, delim ...rune) (*csv.Reader, error) {
 	}
 
 	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
 	if !scanner.Scan() {
 		return nil, fmt.Errorf("file is empty")
 	}
@@ -73,7 +76,7 @@ func CSVReader(filename string, delim ...rune) (*csv.Reader, error) {
 		return nil, fmt.Errorf("could not seek to beginning of file: %w", err)
 	}
 
-	csvReader := csv.NewReader(file)
+	csvReader := csv.NewReader(crlf.NewReader(file))
 	csvReader.LazyQuotes = true
 	csvReader.Comma = delimiter
 
