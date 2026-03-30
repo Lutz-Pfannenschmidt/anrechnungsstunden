@@ -37,7 +37,7 @@ func RenderTemplate(templateFile []byte, outputPath, yearStr, name string, weekl
 	f.SetCellStr(sheet, "D3", floatToString(weekly_hours))
 
 	if len(data) > 15 {
-		data = data[:15]
+		return fmt.Errorf("Zu viele Klausureinträge (%d) für Lehrkraft '%s'. Maximal 15 Einträge werden unterstützt. Bitte prüfen Sie die Daten", len(data), name)
 	}
 
 	sum5 := 0.0
@@ -67,20 +67,26 @@ func RenderTemplate(templateFile []byte, outputPath, yearStr, name string, weekl
 	tempName := os.TempDir() + "/" + TempName(".xlsx")
 	err = f.SaveAs(tempName)
 	if err != nil {
-		return fmt.Errorf("failed to save temporary Excel file: %w", err)
+		return fmt.Errorf("Temporäre Excel-Datei konnte nicht gespeichert werden: %w", err)
 	}
+	// Ensure temp xlsx file is cleaned up on any exit path
+	defer os.Remove(tempName)
+
 	pdfFilePath, err := excel2pdf.ConvertExcelToPdf(tempName)
 	if err != nil {
-		return err
+		return fmt.Errorf("Excel zu PDF Konvertierung fehlgeschlagen: %w", err)
 	}
-	err = os.Remove(tempName)
-	if err != nil {
-		return err
-	}
+	// Ensure generated PDF is cleaned up if we fail after this point
+	defer func() {
+		// Only remove if the file still exists (wasn't successfully renamed)
+		if _, statErr := os.Stat(pdfFilePath); statErr == nil {
+			os.Remove(pdfFilePath)
+		}
+	}()
 
 	err = os.Rename(pdfFilePath, outputPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("PDF konnte nicht nach '%s' verschoben werden: %w", outputPath, err)
 	}
 
 	return nil
