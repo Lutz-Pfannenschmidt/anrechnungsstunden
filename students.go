@@ -39,10 +39,11 @@ type SemesterStudentData struct {
 // If no delimiter is provided, it will auto-detect the delimiter.
 // If multiple delimiters are provided, it will use the first one.
 func ReadSemesterStudentDataFromFile(filename string, delim ...rune) ([]SemesterStudentData, error) {
-	file, err := autocsv.CSVReader(filename, delim...)
+	file, closeFile, err := autocsv.CSVReader(filename, delim...)
 	if err != nil {
 		return nil, fmt.Errorf("error reading CSV file: %w", err)
 	}
+	defer closeFile()
 	return ReadSemesterStudentDataFromReader(file)
 }
 
@@ -50,21 +51,24 @@ func ReadSemesterStudentDataFromFile(filename string, delim ...rune) ([]Semester
 func ReadSemesterStudentDataFromReader(reader *csv.Reader) ([]SemesterStudentData, error) {
 	records, err := reader.ReadAll()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("CSV-Datei konnte nicht gelesen werden: %w", err)
 	}
 
 	if len(records) == 0 {
-		return nil, fmt.Errorf("CSV file is empty")
+		return nil, fmt.Errorf("CSV-Datei ist leer")
 	}
 	if len(records[0]) < 22 {
-		return nil, fmt.Errorf("expected at least 22 columns, got %d", len(records[0]))
+		return nil, fmt.Errorf("Kopfzeile hat nur %d Spalten, erwartet werden mindestens 22", len(records[0]))
 	}
 	if !strings.EqualFold(strings.TrimSpace(records[0][0]), "Nachname") {
-		return nil, fmt.Errorf("expected 'Nachname' in the first column, got '%s'", []byte(records[0][0]))
+		return nil, fmt.Errorf("Erste Spalte sollte 'Nachname' sein, gefunden: '%s'", records[0][0])
 	}
 
 	var students []SemesterStudentData
-	for _, record := range records[1:] {
+	for rowIdx, record := range records[1:] {
+		if len(record) < 22 {
+			return nil, fmt.Errorf("Zeile %d hat nur %d Spalten, erwartet werden mindestens 22. Bitte überprüfen Sie die Datei auf fehlende Daten", rowIdx+2, len(record))
+		}
 		student := SemesterStudentData{
 			Nachname:        strings.TrimSpace(record[0]),
 			Vorname:         strings.TrimSpace(record[1]),
@@ -115,10 +119,11 @@ type ExamData struct {
 // If no delimiter is provided, it will auto-detect the delimiter.
 // If multiple delimiters are provided, it will use the first one.
 func ReadExamDataFromFile(filename string, delim ...rune) ([]ExamData, error) {
-	file, err := autocsv.CSVReader(filename, delim...)
+	file, closeFile, err := autocsv.CSVReader(filename, delim...)
 	if err != nil {
 		return nil, fmt.Errorf("error reading CSV file: %w", err)
 	}
+	defer closeFile()
 	return ReadExamDataFromReader(file)
 }
 
@@ -126,21 +131,24 @@ func ReadExamDataFromFile(filename string, delim ...rune) ([]ExamData, error) {
 func ReadExamDataFromReader(reader *csv.Reader) ([]ExamData, error) {
 	records, err := reader.ReadAll()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Klausurdaten-CSV konnte nicht gelesen werden: %w", err)
 	}
 
 	if len(records) == 0 {
-		return nil, fmt.Errorf("CSV file is empty")
+		return nil, fmt.Errorf("Klausurdaten-CSV ist leer")
 	}
 	if len(records[0]) < 11 {
-		return nil, fmt.Errorf("expected at least 11 columns, got %d", len(records[0]))
+		return nil, fmt.Errorf("Kopfzeile hat nur %d Spalten, erwartet werden mindestens 11", len(records[0]))
 	}
 	if !strings.EqualFold(strings.TrimSpace(records[0][0]), "Nachname") {
-		return nil, fmt.Errorf("expected 'Nachname' in the first column, got '%s'", []byte(records[0][0]))
+		return nil, fmt.Errorf("Erste Spalte sollte 'Nachname' sein, gefunden: '%s'", records[0][0])
 	}
 
 	var studentNotes []ExamData
-	for _, record := range records[1:] {
+	for rowIdx, record := range records[1:] {
+		if len(record) < 11 {
+			return nil, fmt.Errorf("Zeile %d hat nur %d Spalten, erwartet werden mindestens 11. Bitte überprüfen Sie die Datei auf fehlende Daten", rowIdx+2, len(record))
+		}
 		studentNote := ExamData{
 			Nachname:     strings.TrimSpace(record[0]),
 			Vorname:      strings.TrimSpace(record[1]),
