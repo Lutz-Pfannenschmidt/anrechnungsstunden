@@ -121,9 +121,8 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 </DefaultLayout>
 
 <script>
-    import { parse } from "date-fns";
-    import { toast } from "@src/toast";
-    import { Collections } from "@src/pocketbase-types";
+    import { parse, format } from "date-fns";
+    import { toast, showError, showErrorAlert } from "@src/toast";
     import { pb } from "@src/pocketbase";
 
     const form = document.getElementById("frm") as HTMLFormElement;
@@ -145,17 +144,17 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         "file_teilleistung"
     ) as HTMLInputElement;
 
-    function validate() {
+    function validate(): { valid: boolean; errorField?: string } {
         const year = parseInt(yearInput.value);
         if (isNaN(year) || year < 2000) {
             toast("error", "Das Jahr muss eine Zahl größer als 2000 sein");
-            return false;
+            return { valid: false, errorField: "year" };
         }
 
         const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
         if (isNaN(splitDate.getTime())) {
-            toast("error", "Das Datum ist ungültig");
-            return false;
+            toast("error", "Das Datum ist ungültig. Bitte verwenden Sie das Format TT.MM.JJJJ (z.B. 9.2.2026)");
+            return { valid: false, errorField: "splitDate" };
         }
 
         if (
@@ -166,7 +165,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 "error",
                 `Das Datum muss zwischen ${year} und ${year + 1} liegen.`
             );
-            return false;
+            return { valid: false, errorField: "splitDate" };
         }
 
         if (splitDate.getDay() !== 1) {
@@ -174,13 +173,13 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 "error",
                 "Das Datum muss ein Montag sein. Bitte überprüfen Sie ihre Eingabe."
             );
-            return false;
+            return { valid: false, errorField: "splitDate" };
         }
 
         const semester = parseInt(semesterInput.value);
         if (isNaN(semester) || semester < 1 || semester > 2) {
             toast("error", "Das Semester muss 1 oder 2 sein");
-            return false;
+            return { valid: false, errorField: "semester" };
         }
 
         if (file_entlastung_inpt?.files?.length === 0) {
@@ -188,7 +187,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 "error",
                 "Bitte wählen Sie eine Datei für die Entlastungsstunden aus"
             );
-            return false;
+            return { valid: false, errorField: "file_entlastung" };
         }
 
         if (file_leistung_inpt?.files?.length === 0) {
@@ -196,7 +195,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 "error",
                 "Bitte wählen Sie eine Datei für die Leistungsdaten aus"
             );
-            return false;
+            return { valid: false, errorField: "file_leistung" };
         }
 
         if (file_teilleistung_inpt?.files?.length === 0) {
@@ -204,10 +203,10 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
                 "error",
                 "Bitte wählen Sie eine Datei für die Teilleistungen aus"
             );
-            return false;
+            return { valid: false, errorField: "file_teilleistung" };
         }
 
-        return true;
+        return { valid: true };
     }
 
     function setupYear() {
@@ -217,64 +216,53 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
 
     async function submit(e: Event) {
         e.preventDefault();
-        if (!validate()) return;
+        const validation = validate();
+        if (!validation.valid) return;
 
-        const year = parseInt(yearInput.value);
-        const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
-        const semester = parseInt(semesterInput.value);
-        const entlastung_file = (file_entlastung_inpt.files as FileList)[0];
-        const leistung_file = (file_leistung_inpt.files as FileList)[0];
-        const teilleistung_file = (file_teilleistung_inpt.files as FileList)[0];
-
-        const batch = pb.createBatch();
-
-        batch.collection(Collections.Files).create({
-            file: entlastung_file,
-            year: year,
-            semester: semester,
-            type: "hours",
-        });
-
-        batch.collection(Collections.Files).create({
-            file: leistung_file,
-            year: year,
-            semester: semester,
-            type: "course",
-        });
-
-        batch.collection(Collections.Files).create({
-            file: teilleistung_file,
-            year: year,
-            semester: semester,
-            type: "exam",
-        });
-
-        batch.collection(Collections.Years).create({
-            start_year: year,
-            semester: semester,
-            state: "uploaded",
-            split: splitDate,
-        });
+        const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Wird erstellt...";
 
         try {
-            const results = await batch.send();
-            const all_ok = results.every((result) => result.status === 200);
-            if (!all_ok) {
-                throw new Error("Batch upload failed");
-            }
+            const year = parseInt(yearInput.value);
+            const splitDate = parse(splitDateInput.value, "d.M.y", new Date());
+            const semester = parseInt(semesterInput.value);
+            const entlastung_file = (file_entlastung_inpt.files as FileList)[0];
+            const leistung_file = (file_leistung_inpt.files as FileList)[0];
+            const teilleistung_file = (file_teilleistung_inpt.files as FileList)[0];
 
-            window.location.href = "/admin/data/";
-        } catch (e: any) {
-            console.error(e);
-            const yearStr = `${year}/${(year + 1).toString().substring(2)}`;
-            toast(
-                "error",
-                `Fehler beim Erstellen des Halbjahresabschlusses für ${yearStr} ${semester}. Halbjahr. </br> Bitte überprüfen Sie ihre Eingabe.`
-            );
+            // Build FormData for the new backend endpoint
+            const formData = new FormData();
+            formData.append("year", year.toString());
+            formData.append("semester", semester.toString());
+            formData.append("split_date", format(splitDate, "dd.MM.yyyy"));
+            formData.append("file_entlastung", entlastung_file);
+            formData.append("file_leistung", leistung_file);
+            formData.append("file_teilleistung", teilleistung_file);
+
+            const response = await pb.send("/api/halbjahr/create", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (response.success) {
+                toast("success", response.message || "Halbjahresabschluss erfolgreich erstellt");
+                setTimeout(() => {
+                    window.location.href = "/admin/data/";
+                }, 1000);
+            } else {
+                throw new Error(response.message || "Unbekannter Fehler");
+            }
+        } catch (error: unknown) {
+            console.error("Fehler beim Erstellen des Halbjahresabschlusses:", error);
+            await showErrorAlert("Fehler beim Erstellen des Halbjahresabschlusses", error);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
         }
     }
 
     document.addEventListener("DOMContentLoaded", setupYear);
-    form.addEventListener("submit", validate);
     form.addEventListener("submit", submit);
 </script>

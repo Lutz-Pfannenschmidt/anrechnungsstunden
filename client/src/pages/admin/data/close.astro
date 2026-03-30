@@ -34,7 +34,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         YearsStateOptions,
     } from "@src/pocketbase-types";
     import { pb } from "@src/pocketbase";
-    import { customAlert, customPrompt, toast } from "@src/toast";
+    import { customAlert, customPrompt, toast, showError, showErrorAlert } from "@src/toast";
     const table = document.getElementById("users") as HTMLTableElement;
     const tbody = table.querySelector("tbody") as HTMLTableSectionElement;
     const submit = document.getElementById("submit") as HTMLButtonElement;
@@ -44,8 +44,11 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     let year: YearsRecord;
     try {
         year = await pb.collection(Collections.Years).getOne(yID);
-    } catch {
-        window.location.href = "/admin/data/";
+    } catch (error) {
+        showError("Fehler beim Laden des Halbjahresabschlusses", error);
+        setTimeout(() => {
+            window.location.href = "/admin/data/";
+        }, 2000);
         year = {} as YearsRecord;
     }
 
@@ -63,13 +66,21 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             .getFullList<
                 TeacherDataResponse<Expand>
             >({ filter: `semester="${yID}"`, expand: "user" });
-    } catch {
-        window.location.href = "/admin/data/";
+    } catch (error) {
+        showError("Fehler beim Laden der Lehrerdaten", error);
+        setTimeout(() => {
+            window.location.href = "/admin/data/";
+        }, 2000);
         teacher_data = [];
     }
 
+    // Map to store teacher_data IDs
+    const tdIdMap = new Map<string, string>();
+
     teacher_data.forEach((td_row) => {
         const row = document.createElement("tr");
+        row.dataset.tdId = td_row.id;
+        tdIdMap.set(td_row.id, td_row.expand.user.name);
 
         const className = td_row.expand.user.name.includes("_NAME_COLLISION_")
             ? "text-warning"
@@ -78,8 +89,8 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         row.innerHTML = `
             <td class="${className}" >${td_row.expand.user.name.split("_NAME_COLLISION_")[0]} (${td_row.expand.user.short.toUpperCase()})</td>
             <td class="grow">${td_row.avg_time.toFixed(3)}</td>
-            <td class="grow"><input type="number" data-name="class_lead" class="input input-sm" value="${td_row.class_lead.toFixed(3)}" /></td>
-            <td class="grow"><input type="number" data-name="add_points" class="input input-sm" value="${td_row.add_points.toFixed(3)}" /></td>
+            <td class="grow"><input type="number" data-name="class_lead" class="input input-sm" value="${td_row.class_lead.toFixed(3)}" step="0.001" min="0" max="100" /></td>
+            <td class="grow"><input type="number" data-name="add_points" class="input input-sm" value="${td_row.add_points.toFixed(3)}" step="0.001" /></td>
             <td>
                 <button data-rem-id="${td_row.id}" class="btn btn-sm btn-error">Entfernen</button>
             </td>
@@ -89,8 +100,14 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             btn.addEventListener("click", async () => {
                 const id = btn.getAttribute("data-rem-id");
                 if (id) {
-                    await pb.collection(Collections.TeacherData).delete(id);
-                    row.remove();
+                    try {
+                        await pb.collection(Collections.TeacherData).delete(id);
+                        row.remove();
+                        tdIdMap.delete(id);
+                        toast("success", "Lehrperson entfernt");
+                    } catch (error) {
+                        showError("Fehler beim Entfernen der Lehrperson", error);
+                    }
                 }
             });
         });
@@ -101,96 +118,125 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     submit.addEventListener("click", async (e: Event) => {
         e.preventDefault();
 
-        const class_leads = Array.from(
-            document.querySelectorAll(
-                "input[data-name='class_lead']"
-            ) as NodeListOf<HTMLInputElement>
-        ).map((el) => parseFloat(el.value));
+        const rows = tbody.querySelectorAll("tr");
+        const teacherData: { [key: string]: { class_lead: number; add_points: number } } = {};
+        const validationErrors: string[] = [];
 
-        const add_points = Array.from(
-            document.querySelectorAll(
-                "input[data-name='add_points']"
-            ) as NodeListOf<HTMLInputElement>
-        ).map((el) => parseFloat(el.value));
+        rows.forEach((row) => {
+            const tdId = (row as HTMLTableRowElement).dataset.tdId;
+            if (!tdId) return;
 
-        if (
-            class_leads.length !== teacher_data.length ||
-            add_points.length !== teacher_data.length
-        ) {
-            customAlert(
-                "Bitte geben Sie für alle Lehrer:innen eine Klassenleitung und Zusatzpunkte an."
-            );
-            return;
-        }
+            const classLeadInput = row.querySelector("input[data-name='class_lead']") as HTMLInputElement;
+            const addPointsInput = row.querySelector("input[data-name='add_points']") as HTMLInputElement;
 
-        const batch = pb.createBatch();
-        for (let i = 0; i < teacher_data.length; i++) {
-            const td = teacher_data[i];
-            td.class_lead = class_leads[i];
-            td.add_points = add_points[i];
-            batch.collection(Collections.TeacherData).upsert(td);
-        }
+            const classLead = parseFloat(classLeadInput.value);
+            const addPoints = parseFloat(addPointsInput.value);
 
-        try {
-            await batch.send();
-        } catch (e) {
-            customAlert("Fehler beim Aktualisieren der Daten: " + e);
-            return;
-        }
+            const teacherName = tdIdMap.get(tdId) || tdId;
 
-        try {
-            year.state = YearsStateOptions.closed;
-
-            const mul = await customPrompt(
-                "Faktor für die Berechnung der Stunden pro Woche (z.B. 7,84)",
-                "number",
-                "7,84"
-            );
-            const mulFloat = parseFloat(mul || "");
-            if (!mul || isNaN(mulFloat)) {
-                customAlert("Abschluss abgebrochen.");
+            if (isNaN(classLead)) {
+                validationErrors.push(`${teacherName}: Klassenleitung ist keine gültige Zahl`);
                 return;
             }
-            year.base_mul = mulFloat;
 
-            const lead = await customPrompt(
-                "Punkte pro 100% Klassenleitung (z.B. 120)",
-                "number",
-                "120"
-            );
-            const leadFloat = parseFloat(lead || "");
-            if (!lead || isNaN(leadFloat)) {
-                customAlert("Abschluss abgebrochen.");
+            if (classLead < 0 || classLead > 100) {
+                validationErrors.push(`${teacherName}: Klassenleitung muss zwischen 0% und 100% liegen (aktuell: ${classLead}%)`);
                 return;
             }
-            year.lead_points = leadFloat;
 
-            const total = await customPrompt(
-                "Gesamtanrechnungsstunden (z.B. 26)",
-                "number",
-                "26"
-            );
-            const totalFloat = parseFloat(total || "");
-            if (!total || isNaN(totalFloat)) {
-                customAlert("Abschluss abgebrochen.");
+            if (isNaN(addPoints)) {
+                validationErrors.push(`${teacherName}: Zusatzpunkte ist keine gültige Zahl`);
                 return;
             }
-            year.total_points = totalFloat;
 
-            submit.disabled = true;
-            toast(
-                "info",
-                "PDFs werden (im Hintergrund) erstellt.",
-                "Sie können diese Seite verlassen. Wenn sie diese Seite verlassen, werden KEINE Fehler angezeigt, wenn es Probleme gibt."
-            );
-            await pb.collection(Collections.Years).update(year.id, year);
+            teacherData[tdId] = {
+                class_lead: classLead,
+                add_points: addPoints,
+            };
+        });
+
+        if (validationErrors.length > 0) {
             await customAlert(
-                "Halbjahresabschluss erfolgreich abgeschlossen. PDFs wurden erstellt."
+                "Validierungsfehler",
+                validationErrors.join("\n")
             );
-            window.location.href = "/admin/data/";
-        } catch (e) {
-            await customAlert("Fehler beim Abschließen des Jahres: " + e);
             return;
+        }
+
+        if (Object.keys(teacherData).length === 0) {
+            await customAlert("Keine Lehrerdaten vorhanden. Bitte fügen Sie mindestens eine Lehrperson hinzu.");
+            return;
+        }
+
+        // Get calculation parameters
+        const mul = await customPrompt(
+            "Faktor für die Berechnung der Stunden pro Woche (z.B. 7,84)",
+            "number",
+            "7,84"
+        );
+        const mulFloat = parseFloat((mul || "").replace(",", "."));
+        if (!mul || isNaN(mulFloat) || mulFloat <= 0) {
+            await customAlert("Abschluss abgebrochen: Ungültiger Basisfaktor. Der Wert muss eine positive Zahl sein.");
+            return;
+        }
+
+        const lead = await customPrompt(
+            "Punkte pro 100% Klassenleitung (z.B. 120)",
+            "number",
+            "120"
+        );
+        const leadFloat = parseFloat((lead || "").replace(",", "."));
+        if (!lead || isNaN(leadFloat) || leadFloat < 0) {
+            await customAlert("Abschluss abgebrochen: Ungültige Klassenleitungspunkte. Der Wert darf nicht negativ sein.");
+            return;
+        }
+
+        const total = await customPrompt(
+            "Gesamtanrechnungsstunden (z.B. 26)",
+            "number",
+            "26"
+        );
+        const totalFloat = parseFloat((total || "").replace(",", "."));
+        if (!total || isNaN(totalFloat) || totalFloat <= 0) {
+            await customAlert("Abschluss abgebrochen: Ungültige Gesamtanrechnungsstunden. Der Wert muss eine positive Zahl sein.");
+            return;
+        }
+
+        submit.disabled = true;
+        const originalText = submit.textContent;
+        submit.textContent = "Wird abgeschlossen...";
+
+        toast(
+            "info",
+            "PDFs werden erstellt...",
+            "Dies kann einige Sekunden dauern. Bitte warten Sie."
+        );
+
+        try {
+            const response = await pb.send("/api/halbjahr/close", {
+                method: "POST",
+                body: {
+                    year_id: year.id,
+                    teacher_data: teacherData,
+                    base_mul: mulFloat,
+                    lead_points: leadFloat,
+                    total_points: totalFloat,
+                },
+            });
+
+            if (response.success) {
+                await customAlert(
+                    "Halbjahresabschluss erfolgreich abgeschlossen",
+                    `${response.message}\n\nParameter:\n- Basisfaktor: ${mulFloat}\n- Klassenleitungspunkte: ${leadFloat}\n- Gesamtstunden: ${totalFloat}`
+                );
+                window.location.href = "/admin/data/";
+            } else {
+                throw new Error(response.message || "Unbekannter Fehler");
+            }
+        } catch (error) {
+            await showErrorAlert("Fehler beim Abschließen des Halbjahresabschlusses", error);
+            submit.disabled = false;
+            submit.textContent = originalText;
         }
     });
 </script>

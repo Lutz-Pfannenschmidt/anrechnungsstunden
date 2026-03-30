@@ -112,7 +112,7 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         type UsersResponse,
         type YearsRecord,
     } from "@src/pocketbase-types";
-    import { toast } from "@src/toast";
+    import { toast, showError, showErrorAlert } from "@src/toast";
     import { format, parseISO } from "date-fns";
 
     const table = document.getElementById("data") as HTMLTableElement;
@@ -142,8 +142,11 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
     let year: YearsRecord;
     try {
         year = await pb.collection(Collections.Years).getOne(yID);
-    } catch {
-        window.location.href = "/admin/data/";
+    } catch (error) {
+        showError("Fehler beim Laden des Halbjahresabschlusses", error);
+        setTimeout(() => {
+            window.location.href = "/admin/data/";
+        }, 2000);
         year = {} as YearsRecord;
     }
 
@@ -193,11 +196,11 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
             method: "POST",
             body: query,
         });
-    } catch (e) {
-        console.error(e);
-        toast(
-            "error",
-            `Fehler beim Abrufen der Daten. Bitte versuchen Sie es später erneut.`
+    } catch (error) {
+        console.error(error);
+        await showErrorAlert(
+            "Fehler beim Parsen der Dateien",
+            error
         );
     }
 
@@ -407,154 +410,103 @@ import DefaultLayout from "@src/layouts/DefaultLayout.astro";
         e.preventDefault();
         user_popover.close();
         confirmBtn.disabled = true;
+        
+        const originalText = confirmBtn.textContent;
+        confirmBtn.textContent = "Wird gespeichert...";
+
         const rows = user_popover
             .querySelector("tbody")!
             .querySelectorAll("tr");
-        const users: { [key: string]: string[] } = {};
+        
+        // Build the teachers object for the new API
+        const teachers: { [key: string]: { short: string; email: string; avg_time: number } } = {};
+        const validationErrors: string[] = [];
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const name = row.dataset.name as string;
 
             if (name == null) {
-                confirmBtn.disabled = false;
-                toast(
-                    "error",
-                    "Fehler beim Erstellen der Benutzer. Name ist nicht gesetzt. Bitte laden Sie die Seite neu und versuchen Sie es erneut."
-                );
-                return;
+                validationErrors.push(`Zeile ${i + 1}: Name ist nicht gesetzt`);
+                continue;
             }
 
             const shortInput = row.querySelector(
                 "input[data-name=short]"
             ) as HTMLInputElement;
-            const short = shortInput.value;
+            const short = shortInput.value.trim();
 
             let emailInput = row.querySelector(
                 "input[data-name=email]"
             ) as HTMLInputElement;
-            let email = emailInput.value || `${short}@${domainInput.value}`;
+            let email = emailInput.value.trim() || `${short}@${domainInput.value}`;
 
             if (!email.includes("@")) {
                 email = `${email}@${domainInput.value}`;
             }
 
-            let valid = true;
-            userMsg.textContent = "";
-            if (short.length < 3) {
-                userMsg.textContent =
-                    "Kürzel muss mindestens 3 Zeichen lang sein.";
-                valid = false;
+            // Validate
+            if (short.length < 2) {
+                validationErrors.push(`${name}: Kürzel '${short}' muss mindestens 2 Zeichen lang sein`);
+                continue;
             }
 
-            if (email.length < 5) {
-                userMsg.textContent =
-                    "E-Mail-Adresse muss mindestens 5 Zeichen lang sein.";
-                valid = false;
+            if (email.length < 5 || !email.includes("@")) {
+                validationErrors.push(`${name}: E-Mail '${email}' ist ungültig`);
+                continue;
             }
 
-            if (!valid) {
-                confirmBtn.disabled = false;
-                return;
-            }
-
-            const id = row.dataset.id || "";
-
-            users[name] = [short, email, id];
-        }
-
-        let batch = pb.createBatch();
-        for (const key in users) {
-            const [short, email, id] = users[key];
-
-            let obj = {
-                email: email,
-                name: key,
+            teachers[name] = {
                 short: short.toUpperCase(),
-            } as UsersRecord;
+                email: email.toLowerCase(),
+                avg_time: sortedData[name] || 0,
+            };
+        }
 
-            if (id && id.length > 0) {
-                obj["id"] = id;
+        if (validationErrors.length > 0) {
+            userMsg.textContent = validationErrors.join("\n");
+            userMsg.classList.add("text-error");
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText;
+            user_popover.showModal();
+            return;
+        }
+
+        if (Object.keys(teachers).length === 0) {
+            toast("error", "Keine gültigen Lehrerdaten gefunden");
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText;
+            return;
+        }
+
+        try {
+            const response = await pb.send("/api/halbjahr/select-teachers", {
+                method: "POST",
+                body: {
+                    year_id: year.id,
+                    teachers: teachers,
+                },
+            });
+
+            if (response.success) {
+                let message = response.message || "Lehrer erfolgreich zugewiesen";
+                if (response.warnings && response.warnings.length > 0) {
+                    toast("warning", message, `Warnungen: ${response.warnings.length}`);
+                    console.warn("Warnungen:", response.warnings);
+                } else {
+                    toast("success", message);
+                }
+
+                setTimeout(() => {
+                    window.location.href = "/admin/data/";
+                }, 1000);
             } else {
-                try {
-                    const record = await pb
-                        .collection(Collections.Users)
-                        .getFirstListItem(
-                            `short:lower="${short.toLowerCase()}||email:lower="${email.toLowerCase()}"`
-                        );
-                    obj["id"] = record.id;
-                } catch {}
+                throw new Error(response.message || "Unbekannter Fehler");
             }
-
-            batch.collection(Collections.Users).upsert(obj);
-        }
-
-        try {
-            await batch.send();
-        } catch {
-            toast("error", "Fehler beim Erstellen der Benutzer.");
-            return;
-        }
-
-        const td_batch = pb.createBatch();
-
-        for (const key in users) {
-            const [short] = users[key];
-            let usr: UsersResponse | undefined = undefined;
-            try {
-                usr = await pb
-                    .collection(Collections.Users)
-                    .getFirstListItem(`short:lower="${short.toLowerCase()}"`);
-            } catch {}
-
-            if (!usr) {
-                toast(
-                    "error",
-                    `Benutzer ${short} konnte nicht gefunden werden. Bitte laden Sie die Seite neu und versuchen Sie es erneut.`
-                );
-                confirmBtn.disabled = false;
-                return;
-            }
-
-            td_batch.collection(Collections.TeacherData).create({
-                user: usr.id,
-                semester: year.id,
-                avg_time: sortedData[key],
-                class_lead: 0,
-            });
-        }
-        try {
-            await td_batch.send();
-        } catch {
-            toast(
-                "error",
-                "Fehler beim Erstellen der Lehrpersonen-Daten. (teacher_data)"
-            );
+        } catch (error) {
+            await showErrorAlert("Fehler beim Zuweisen der Lehrer", error);
             confirmBtn.disabled = false;
-            return;
-        }
-
-        try {
-            await pb.collection(Collections.Years).update(year.id, {
-                state: "open",
-            });
-
-            toast(
-                "success",
-                `Halbjahresabschluss für ${yearStr}, ${semStr} erfolgreich aktualisiert.`
-            );
-
-            setTimeout(() => {
-                window.location.href = "/admin/data/";
-            }, 1000);
-        } catch {
-            toast(
-                "error",
-                `Fehler beim Aktualisieren des Halbjahresabschlusses.`
-            );
-            submitBtn.click();
-            confirmBtn.disabled = false;
-            return;
+            confirmBtn.textContent = originalText;
         }
     }
 

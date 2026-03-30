@@ -26,8 +26,14 @@ func main() {
 	app.OnRecordAfterUpdateSuccess("years").BindFunc(onYearsUpdate)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// Existing endpoints
 		se.Router.POST("/parse/", parse).BindFunc(apis.RequireSuperuserAuth().Func)
 		se.Router.GET("/send_pdfs/", pdfSender).BindFunc(apis.RequireSuperuserAuth().Func)
+
+		// New Halbjahresabschluss endpoints with proper error handling
+		se.Router.POST("/api/halbjahr/create", createHalbjahr).BindFunc(apis.RequireSuperuserAuth().Func)
+		se.Router.POST("/api/halbjahr/select-teachers", selectTeachers).BindFunc(apis.RequireSuperuserAuth().Func)
+		se.Router.POST("/api/halbjahr/close", closeYear).BindFunc(apis.RequireSuperuserAuth().Func)
 
 		se.Router.GET("/{path...}", apis.Static(os.DirFS("./client/dist/"), false))
 		return se.Next()
