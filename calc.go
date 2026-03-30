@@ -71,10 +71,10 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		AndWhere(dbx.NewExp("id={:id}", dbx.Params{"id": yearID})).
 		One(&year)
 	if err != nil {
-		return fmt.Errorf("failed to fetch year record: %w", err)
+		return fmt.Errorf("Halbjahresabschluss mit ID '%s' konnte nicht geladen werden: %w", yearID, err)
 	}
 	if year.ID == "" {
-		return fmt.Errorf("year record with ID %s not found", yearID)
+		return fmt.Errorf("Halbjahresabschluss mit ID '%s' existiert nicht in der Datenbank", yearID)
 	}
 
 	td_records := []TeacherDataRecord{}
@@ -85,7 +85,11 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		Join("INNER JOIN", "users", dbx.NewExp("users.id = teacher_data.user")).
 		All(&td_records)
 	if err != nil {
-		return fmt.Errorf("failed to fetch teacher data records: %w", err)
+		return fmt.Errorf("Lehrerdaten für Halbjahr '%s' konnten nicht geladen werden: %w", yearID, err)
+	}
+
+	if len(td_records) == 0 {
+		return fmt.Errorf("Keine Lehrerdaten für Halbjahr '%s' gefunden. Bitte wählen Sie zuerst Lehrkräfte aus (Schritt 2)", yearID)
 	}
 
 	files, err := app.FindRecordsByFilter("files", "year={:year} && semester={:sem}", "", 0, 0, dbx.Params{
@@ -93,11 +97,16 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		"sem":  year.Semester,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to fetch files for year %s: %w", yearID, err)
+		return fmt.Errorf("Dateien für Schuljahr %d/%d, %d. Halbjahr konnten nicht geladen werden: %w", year.StartYear, year.StartYear+1, year.Semester, err)
 	}
 
 	if len(files) != 3 {
-		return fmt.Errorf("expected 3 files (exam, course, hours) for year %s, got %d", yearID, len(files))
+		foundTypes := []string{}
+		for _, f := range files {
+			foundTypes = append(foundTypes, f.GetString("type"))
+		}
+		return fmt.Errorf("Es werden 3 Dateien (exam, course, hours) für Schuljahr %d/%d benötigt, aber nur %d gefunden: %v. Bitte laden Sie alle erforderlichen Dateien hoch",
+			year.StartYear, year.StartYear+1, len(files), foundTypes)
 	}
 
 	var examFilePath, courseFilePath string
@@ -112,20 +121,20 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 
 	semStuData, err := ReadSemesterStudentDataFromFile(courseFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to read student data (Leistungsdaten) from course file: %w", err)
+		return fmt.Errorf("Fehler beim Lesen der Leistungsdaten (Kursdaten) aus '%s': %w. Bitte überprüfen Sie das Dateiformat", courseFilePath, err)
 	}
 
 	if len(semStuData) == 0 {
-		return fmt.Errorf("no student data found in course file %s", courseFilePath)
+		return fmt.Errorf("Keine Schülerdaten in der Leistungsdaten-Datei '%s' gefunden. Die Datei scheint leer oder ungültig zu sein", courseFilePath)
 	}
 
 	examData, err := ReadExamDataFromFile(examFilePath)
 	fmt.Printf("Reading exam data from file %s\n", examFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to read exam data (Teilleistungen) from file %s: %w", examFilePath, err)
+		return fmt.Errorf("Fehler beim Lesen der Teilleistungen (Klausurdaten) aus '%s': %w. Bitte überprüfen Sie das Dateiformat", examFilePath, err)
 	}
 	if len(examData) == 0 {
-		return fmt.Errorf("no exam data found in file %s", examFilePath)
+		return fmt.Errorf("Keine Klausurdaten in der Teilleistungen-Datei '%s' gefunden. Die Datei scheint leer oder ungültig zu sein", examFilePath)
 	}
 
 	scores := map[string]float64{}           // UserID -> Score
@@ -151,11 +160,11 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		AndWhere(dbx.NewExp("points>0")).
 		All(&examPointRecords)
 	if err != nil {
-		return fmt.Errorf("failed to fetch exam point records: %w", err)
+		return fmt.Errorf("Fehler beim Laden der Punktekonfiguration (part_points): %w", err)
 	}
 
 	if len(examPointRecords) == 0 {
-		return fmt.Errorf("no exam point records found")
+		return fmt.Errorf("Keine Punktekonfiguration gefunden. Bitte konfigurieren Sie zuerst die Punkte pro Klausur unter 'Punktekonfiguration'")
 	}
 
 	for _, record := range examPointRecords {
@@ -270,11 +279,11 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 	outDir := path.Join(os.TempDir(), "Anrechnungsstundenberechner", year.ID+"_"+strconv.Itoa(year.Semester))
 
 	if err := os.RemoveAll(outDir); err != nil {
-		return fmt.Errorf("failed to remove output directory %s: %w", outDir, err)
+		return fmt.Errorf("Temporäres Ausgabeverzeichnis '%s' konnte nicht gelöscht werden: %w", outDir, err)
 	}
 
 	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory %s: %w", outDir, err)
+		return fmt.Errorf("Temporäres Ausgabeverzeichnis '%s' konnte nicht erstellt werden: %w", outDir, err)
 	}
 
 	for id, td := range tdByID {
@@ -286,14 +295,15 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		}
 	}
 
+	var renderErrors []string
 	for uID, score := range scores {
 		td, ok := tdByID[uID]
 		if !ok {
-			return fmt.Errorf("teacher data for user %s not found", uID)
+			return fmt.Errorf("Lehrerdaten für Benutzer-ID '%s' nicht gefunden. Datenbankinkonsistenz erkannt", uID)
 		}
 		d, ok := data[uID]
 		if !ok {
-			return fmt.Errorf("data for user %s not found", uID)
+			return fmt.Errorf("Klausurdaten für Benutzer '%s' (%s) nicht gefunden", td.Name, uID)
 		}
 
 		nameParts := strings.Split(td.Name, "_NAME_COLLISION_")
@@ -313,8 +323,12 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 			d,
 		)
 		if err != nil {
-			fmt.Printf("Failed to render template for user %s (%s): %v\n", nameParts[0]+" ("+td.UserID+")", uID, err)
+			renderErrors = append(renderErrors, fmt.Sprintf("- %s (%s): %v", nameParts[0], td.Short, err))
 		}
+	}
+
+	if len(renderErrors) > 0 {
+		return fmt.Errorf("PDF-Erstellung fehlgeschlagen für %d Lehrkraft/Lehrkräfte:\n%s", len(renderErrors), strings.Join(renderErrors, "\n"))
 	}
 
 	fmt.Printf("Rendered %d PDFs for year %s\n", len(scores), yearID)
@@ -322,20 +336,20 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 	// Combine all PDFs into a single PDF
 	combinedPDFPath := path.Join(outDir, "combined.pdf")
 	if err := render.CombinePDFsFromDir(outDir, combinedPDFPath); err != nil {
-		return fmt.Errorf("failed to combine PDFs: %w", err)
+		return fmt.Errorf("Fehler beim Zusammenführen der PDFs zu einer Gesamtdatei: %w", err)
 	}
 
 	// Save the individual PDFs to the database
 	pdfsCollection, err := app.FindCollectionByNameOrId("pdfs")
 	if err != nil {
-		return fmt.Errorf("failed to find pdfs collection: %w", err)
+		return fmt.Errorf("Datenbankfehler: 'pdfs' Collection nicht gefunden: %w", err)
 	}
 
 	for uID := range scores {
 		pdfPath := path.Join(outDir, uID+".pdf")
 		pdfFile, err := filesystem.NewFileFromPath(pdfPath)
 		if err != nil {
-			return fmt.Errorf("failed to create file from path %s: %w", pdfPath, err)
+			return fmt.Errorf("PDF-Datei '%s' konnte nicht gelesen werden: %w", pdfPath, err)
 		}
 
 		record := core.NewRecord(pdfsCollection)
@@ -344,19 +358,20 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 		record.Set("pdf", pdfFile)
 
 		if err := app.Save(record); err != nil {
-			return fmt.Errorf("failed to save PDF record for user %s: %w", uID, err)
+			td := tdByID[uID]
+			return fmt.Errorf("PDF für Lehrkraft '%s' (%s) konnte nicht gespeichert werden: %w", td.Name, td.Short, err)
 		}
 	}
 
 	// Save the results record
 	resultsCollection, err := app.FindCollectionByNameOrId("results")
 	if err != nil {
-		return fmt.Errorf("failed to find results collection: %w", err)
+		return fmt.Errorf("Datenbankfehler: 'results' Collection nicht gefunden: %w", err)
 	}
 
 	pdf, err := filesystem.NewFileFromPath(combinedPDFPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file from path %s: %w", combinedPDFPath, err)
+		return fmt.Errorf("Kombinierte PDF-Datei '%s' konnte nicht gelesen werden: %w", combinedPDFPath, err)
 	}
 
 	humanReadableScores := make(map[string]float64)
@@ -364,7 +379,7 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 	for uID, score := range scores {
 		td, ok := tdByID[uID]
 		if !ok {
-			return fmt.Errorf("teacher data for user %s not found", uID)
+			return fmt.Errorf("Lehrerdaten für Benutzer-ID '%s' bei Ergebniserstellung nicht gefunden", uID)
 		}
 
 		nameParts := strings.Split(td.Name, "_NAME_COLLISION_")
@@ -376,12 +391,12 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 
 	untisPath := path.Join(outDir, "untis.txt")
 	if err := render.WriteToUntisDataFile(untisScores, untisPath); err != nil {
-		return fmt.Errorf("failed to write Untis data file: %w", err)
+		return fmt.Errorf("Fehler beim Erstellen der Untis-Export-Datei: %w", err)
 	}
 
 	untisFile, err := filesystem.NewFileFromPath(untisPath)
 	if err != nil {
-		return fmt.Errorf("failed to create file from path %s: %w", untisPath, err)
+		return fmt.Errorf("Untis-Export-Datei '%s' konnte nicht gelesen werden: %w", untisPath, err)
 	}
 
 	resRecord := core.NewRecord(resultsCollection)
@@ -391,7 +406,7 @@ func CalculateAndRenderResults(app core.App, yearID string) error {
 	resRecord.Set("untis", untisFile)
 
 	if err := app.Save(resRecord); err != nil {
-		return fmt.Errorf("failed to save results record: %w", err)
+		return fmt.Errorf("Ergebnisdatensatz konnte nicht gespeichert werden: %w", err)
 	}
 
 	return nil

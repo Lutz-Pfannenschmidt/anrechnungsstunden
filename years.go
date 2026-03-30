@@ -12,7 +12,7 @@ func onYearsDelete(e *core.RecordEvent) error {
 	year := e.Record.GetInt("start_year")
 	semester := e.Record.GetInt("semester")
 	if yearID == "" || year == 0 || semester == 0 {
-		return fmt.Errorf("invalid year record: %s with year: %v and sem: %v", e.Record.Id, year, semester)
+		return fmt.Errorf("Ungültiger Halbjahresabschluss-Datensatz: ID='%s', Jahr=%v, Halbjahr=%v", e.Record.Id, year, semester)
 	}
 
 	// Delete all files associated with the year
@@ -23,7 +23,7 @@ func onYearsDelete(e *core.RecordEvent) error {
 			"sem":  semester,
 		}).Execute()
 	if err != nil {
-		return fmt.Errorf("failed to delete files for year %s: %w", yearID, err)
+		return fmt.Errorf("Dateien für Schuljahr %d/%d, %d. Halbjahr konnten nicht gelöscht werden: %w", year, year+1, semester, err)
 	}
 
 	return e.Next()
@@ -39,7 +39,7 @@ func onYearsUpdate(e *core.RecordEvent) error {
 			Bind(dbx.Params{"yearID": yearID}).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("failed to delete results for year %s: %w", yearID, err)
+			return fmt.Errorf("Ergebnisse für Halbjahresabschluss '%s' konnten nicht gelöscht werden: %w", yearID, err)
 		}
 
 		_, err = e.App.DB().
@@ -47,7 +47,7 @@ func onYearsUpdate(e *core.RecordEvent) error {
 			Bind(dbx.Params{"yearID": yearID}).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("failed to delete PDFs for year %s: %w", yearID, err)
+			return fmt.Errorf("PDFs für Halbjahresabschluss '%s' konnten nicht gelöscht werden: %w", yearID, err)
 		}
 	}
 
@@ -67,14 +67,16 @@ func onYearsUpdate(e *core.RecordEvent) error {
 			Bind(dbx.Params{"id": resRecord.Id}).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("failed to delete result record for year %s: %w", yearID, err)
+			return fmt.Errorf("Bestehende Ergebnisse für Halbjahresabschluss '%s' konnten nicht gelöscht werden: %w", yearID, err)
 		}
 		resRecord.Id = ""
 	}
 
 	if e.Record.GetString("state") == "closed" && resRecord.Id == "" {
-		return CalculateAndRenderResults(e.App, yearID)
+		if err := CalculateAndRenderResults(e.App, yearID); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return e.Next()
 }
