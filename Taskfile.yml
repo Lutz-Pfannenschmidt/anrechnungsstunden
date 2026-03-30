@@ -1,0 +1,140 @@
+version: '3'
+
+vars:
+  IMAGE_NAME: lutzpfannenschmidt/anrechnungsstundenberechner
+  VERSION:
+    sh: date +%Y.%m.%d-%H.%M.%S
+  BIN_DIR: bin
+
+tasks:
+  default:
+    desc: Build everything (backend + frontend)
+    cmds:
+      - task: buildall
+
+  buildall:
+    desc: Build backend and frontend
+    cmds:
+      - task: clean
+      - task: build
+      - task: buildclient
+
+  build:
+    desc: Build Go backend
+    cmds:
+      - mkdir -p {{.BIN_DIR}}/templates
+      - go build -o {{.BIN_DIR}}/ .
+      - cp -r templates/* {{.BIN_DIR}}/templates
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+      - templates/**/*
+    generates:
+      - "{{.BIN_DIR}}/anrechnungsstundenberechner"
+
+  buildclient:
+    desc: Build frontend client
+    dir: client
+    cmds:
+      - npm install
+      - npm run build
+      - mkdir -p ../{{.BIN_DIR}}/client/dist
+      - cp -r dist/* ../{{.BIN_DIR}}/client/dist
+    sources:
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.astro"
+      - "**/*.vue"
+      - "**/*.css"
+      - package.json
+      - package-lock.json
+    generates:
+      - dist/**/*
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BIN_DIR}}/
+      - rm -rf client/dist
+
+  # Development tasks
+  dev:
+    desc: Run backend in development mode
+    cmds:
+      - go run . serve
+
+  dev:client:
+    desc: Run frontend in development mode
+    dir: client
+    cmds:
+      - npm run dev
+
+  # Docker tasks
+  docker:build:
+    desc: Build Docker image
+    cmds:
+      - docker build --build-arg VERSION={{.VERSION}} -t {{.IMAGE_NAME}}:{{.VERSION}} -t {{.IMAGE_NAME}}:latest .
+
+  docker:push:
+    desc: Push Docker image to Docker Hub
+    cmds:
+      - docker push {{.IMAGE_NAME}}:{{.VERSION}}
+      - docker push {{.IMAGE_NAME}}:latest
+
+  docker:publish:
+    desc: Build and push Docker image
+    cmds:
+      - task: docker:build
+      - task: docker:push
+
+  docker:clean:
+    desc: Clean up Docker images and containers
+    cmds:
+      - docker rmi {{.IMAGE_NAME}}:{{.VERSION}}
+      - docker container prune -f
+
+  docker:test:
+    desc: Build and run Docker container for testing
+    cmds:
+      - docker build --build-arg VERSION={{.VERSION}}_test -t {{.IMAGE_NAME}}:test .
+      - docker run -p 1337:80 {{.IMAGE_NAME}}:test
+
+  # Code generation
+  gentypes:
+    desc: Generate PocketBase TypeScript types
+    cmds:
+      - npx pocketbase-typegen --db ./pb_data/data.db --out ./client/src/pocketbase-types.ts
+
+  # Go specific tasks
+  test:
+    desc: Run Go tests
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run Go linter
+    cmds:
+      - golangci-lint run
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  tidy:
+    desc: Tidy Go modules
+    cmds:
+      - go mod tidy
+
+  vet:
+    desc: Run Go vet
+    cmds:
+      - go vet ./...
+
+  check:
+    desc: Run all checks (fmt, vet, lint, test)
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
